@@ -19,11 +19,11 @@ final class DockIconController {
         thumbnailTask?.cancel()
         guard let entry else { NSApp.applicationIconImage = nil; return }
         let store = ThumbnailStore.shared
-        NSApp.applicationIconImage = store.cached(for: entry) ?? store.icon(for: entry)
+        NSApp.applicationIconImage = DockIconRenderer.image(with: store.cached(for: entry) ?? store.icon(for: entry))
         thumbnailTask = Task { @MainActor in
             let image = await store.image(for: entry)
             guard !Task.isCancelled else { return }
-            NSApp.applicationIconImage = image
+            NSApp.applicationIconImage = DockIconRenderer.image(with: image)
         }
     }
 

@@ -55,6 +55,14 @@ The sandboxed release app was rebuilt and its ad-hoc signature verified. Native 
 
 The dynamic icon is driven by all scanned entries, independently of visible results, through the public AppKit icon API. Newest-file selection has automated coverage. A direct visual check of the Dock icon and its behavior across Dock settings remains a release check; the automation could not capture the Dock surface on this Mac.
 
+## Outside-click dismissal and Dock identity
+
+The fan now observes mouse-down events delivered to other apps while it is open, covering system menu-bar popovers that leave DownloadScroller active. It also closes when another window takes focus or the app deactivates. The mouse monitor is removed on dismissal, app hiding, window closure, and termination. **Keep window open** still opts out; the folder picker and the app's own Quick Look panel remain part of the current session.
+
+The rebuilt sandboxed app passed signature verification and all eight existing core scenarios. Native UI checks confirmed that the fan's own menu, keyboard Quick Look, and folder-picker cancellation remain usable after installing the monitor. The automation cannot directly open Control Center, and interactions aimed at a background app do not reproduce a physical system-menu click. The exact Control Center dismissal path therefore needs a manual click check; it is not claimed as visually verified here.
+
+The recent-file icon is now composited with a mint **DS** badge, including the immediate fallback icon and the completed Quick Look thumbnail. The renderer was inspected at 280, 128, 64, 48, and 32 pixels using a generic PDF icon. [Badge rendering preview](images/dock-badge.png) contains no personal file data. Direct Dock-surface verification remains subject to the automation limitation noted above.
+
 ## Release checklist still required
 
 - Signed Xcode archive validation, provisioning, TestFlight, and App Review.

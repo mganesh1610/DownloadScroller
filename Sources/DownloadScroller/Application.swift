@@ -24,6 +24,7 @@ final class ShelfController: NSWindowController, NSWindowDelegate, @preconcurren
     private var previewIndex = 0
     private var subscriptions = Set<AnyCancellable>()
     private var lastAnchor: NSRect?
+    private var outsideClickMonitor: Any?
 
     init(model: LibraryModel) {
         self.model = model
@@ -52,6 +53,12 @@ final class ShelfController: NSWindowController, NSWindowDelegate, @preconcurren
                 self?.positionWindow()
             }
         }.store(in: &subscriptions)
+        NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)
+            .sink { [weak self] _ in self?.dismissForOutsideInteraction() }
+            .store(in: &subscriptions)
+        NotificationCenter.default.publisher(for: NSApplication.didHideNotification)
+            .sink { [weak self] _ in self?.stopOutsideClickMonitor() }
+            .store(in: &subscriptions)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -62,6 +69,7 @@ final class ShelfController: NSWindowController, NSWindowDelegate, @preconcurren
         positionWindow()
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
+        startOutsideClickMonitor()
         model.refresh()
     }
 
@@ -90,6 +98,7 @@ final class ShelfController: NSWindowController, NSWindowDelegate, @preconcurren
     }
 
     func dismiss() {
+        stopOutsideClickMonitor()
         if QLPreviewPanel.sharedPreviewPanelExists(), QLPreviewPanel.shared().currentController as AnyObject? === self {
             QLPreviewPanel.shared().orderOut(nil)
         }
@@ -98,11 +107,42 @@ final class ShelfController: NSWindowController, NSWindowDelegate, @preconcurren
 
     func windowDidResignKey(_ notification: Notification) {
         DispatchQueue.main.async { [weak self] in
-            guard let self, !self.model.pinned, self.window?.attachedSheet == nil else { return }
-            if QLPreviewPanel.sharedPreviewPanelExists(), QLPreviewPanel.shared().isVisible { return }
-            if !NSApp.isActive { self.dismiss() }
+            guard let self, self.window?.isKeyWindow == false else { return }
+            // A folder picker or our own Quick Look panel is part of this session.
+            if QLPreviewPanel.sharedPreviewPanelExists(),
+               QLPreviewPanel.shared().currentController as AnyObject? === self,
+               QLPreviewPanel.shared().isVisible, NSApp.isActive { return }
+            self.dismissForOutsideInteraction()
         }
     }
+
+    func windowDidBecomeKey(_ notification: Notification) {
+        if window?.isVisible == true { startOutsideClickMonitor() }
+    }
+
+    private func startOutsideClickMonitor() {
+        guard outsideClickMonitor == nil else { return }
+        // System menu-bar popovers may leave our app active and our panel key.
+        // Observe mouse-down events in other apps only; our menus and status
+        // button retain their normal behavior. No keyboard monitoring is used.
+        outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] _ in
+            self?.dismissForOutsideInteraction()
+        }
+    }
+
+    private func dismissForOutsideInteraction() {
+        guard window?.isVisible == true, !model.pinned, window?.attachedSheet == nil else { return }
+        dismiss()
+    }
+
+    private func stopOutsideClickMonitor() {
+        if let outsideClickMonitor { NSEvent.removeMonitor(outsideClickMonitor) }
+        outsideClickMonitor = nil
+    }
+
+    func shutdown() { stopOutsideClickMonitor() }
+
+    func windowWillClose(_ notification: Notification) { stopOutsideClickMonitor() }
 
     private func preview(_ urls: [URL], index: Int) {
         previewURLs = urls
@@ -190,6 +230,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         if let eventMonitor { NSEvent.removeMonitor(eventMonitor) }
+        controller.shutdown()
         dockIcon?.stop()
         model.shutdown()
     }

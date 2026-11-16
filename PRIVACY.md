@@ -14,6 +14,8 @@ The app stores a security-scoped bookmark in its local preferences so it can reo
 
 Thumbnails and previews use Apple's Quick Look services. Opening a file or revealing it in Finder asks macOS to hand that file to the appropriate application. Those applications and any cloud storage provider you use have their own privacy practices. DownloadScroller does not send your files to its developer.
 
+While the fan is open, a mouse-click event monitor lets it close when you interact with another app or a system menu. These events are not recorded or transmitted. The app does not monitor global keystrokes.
+
 ## Support
 
 Use [GitHub Issues](https://github.com/mganesh1610/DownloadScroller/issues) for support. Issues are public: avoid attaching private filenames, screenshots, or documents. Information you voluntarily post to GitHub is handled by GitHub under its own privacy policy.

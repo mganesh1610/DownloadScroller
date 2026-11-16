@@ -16,7 +16,7 @@ This is a standalone app. It does not modify Apple's Downloads stack or replace 
 
 - Continuous scrolling through all visible items, with smooth interpolation for regular mouse wheels and native trackpad momentum.
 - A dedicated curved fan with softer filename capsules and high-resolution Quick Look thumbnails.
-- A running Dock icon that shows the newest completed file, regardless of search, filter, or sort order.
+- A running Dock icon that shows the newest completed file with a mint **DS** badge, regardless of search, filter, or sort order.
 - Search by filename, including multiple words and case-insensitive matches.
 - File-type filters and newest, oldest, name, size, or kind sorting.
 - Single-click opening, Quick Look, and reveal in Finder.
@@ -41,7 +41,7 @@ The script builds for the current Mac's architecture, creates the app bundle and
 
 With full Xcode 16 or later, open `DownloadScroller.xcodeproj`, select your signing team, and run the `DownloadScroller` scheme. The native project also supports universal release builds and archives. Its default bundle identifier is `io.github.mganesh1610.DownloadScroller`; use your own identifier for forks.
 
-On first launch, choose Downloads using the folder picker. The **folder menu** at the bottom of the fan provides sorting, filters, folder selection, disconnect, and pinning. Keep the app in the Dock manually using the Dock's **Options → Keep in Dock** action if desired. Closing the fan leaves the app running; **⌘Q** quits it. Pinning keeps it visible when switching apps.
+On first launch, choose Downloads using the folder picker. The **folder menu** at the bottom of the fan provides sorting, filters, folder selection, disconnect, and pinning. Keep the app in the Dock manually using the Dock's **Options → Keep in Dock** action if desired. Closing the fan leaves the app running; **⌘Q** quits it. The fan closes when you click outside it, open another menu-bar item, or switch apps. **Keep window open** pins it instead; its own folder menu, search, Quick Look, and folder picker remain usable.
 
 ## Keyboard shortcuts
 

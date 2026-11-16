@@ -11,7 +11,7 @@ DownloadScroller 0.1.0 is an early preview. The source and native project are pr
 - Privacy manifest declaring no tracking or collection, plus required reasons for preferences and file metadata.
 - MIT source license, public privacy policy, support channel, and draft store listing below.
 
-The application does not patch the Dock, use private APIs, inject code, request Accessibility or Full Disk Access, or require an administrator. It does not add itself to the Dock or configure login items automatically. While running, the app uses the public `NSApplication.applicationIconImage` API to show its newest completed file in the Dock. The bundled icon remains the app's static identity.
+The application does not patch the Dock, use private APIs, inject code, request Accessibility or Full Disk Access, or require an administrator. It does not add itself to the Dock or configure login items automatically. While running, the app uses the public `NSApplication.applicationIconImage` API to show its newest completed file with a DownloadScroller “DS” badge in the Dock. The bundled icon remains the app's static identity.
 
 ## Publisher steps
 
@@ -67,7 +67,7 @@ DownloadScroller is a standalone utility that opens from its own app icon. It do
 
 On launch, select **Choose Downloads folder** and grant read-only access to Downloads or a test folder through the standard macOS picker. No login is needed. Alternatively, select **Take a look with sample files** to browse 240 generated files in the app's temporary directory.
 
-Scroll in the fan to reach all files. Use the magnifying glass or Command-F to search. The folder menu at the bottom of the fan offers sorting, filters, and pinning. There is one fan layout. Click a file to open it. Use arrow keys and Space (or Command-Y) for Quick Look, or right-click a file for actions. Use the app's menu bar item or click its Dock icon to reopen the fan. Command-Q quits the app. **Folder menu → Disconnect folder** removes saved folder access.
+Scroll in the fan to reach all files. Use the magnifying glass or Command-F to search. The folder menu at the bottom of the fan offers sorting, filters, and pinning. There is one fan layout. Click a file to open it. Use arrow keys and Space (or Command-Y) for Quick Look, or right-click a file for actions. Use the app's menu bar item or click its Dock icon to reopen the fan. The fan closes when clicking outside or opening a system menu; **Keep window open** preserves it. Outside-click detection uses a public, mouse-only event monitor while the fan is open, with no Accessibility permission request. Command-Q quits the app. **Folder menu → Disconnect folder** removes saved folder access.
 
 This app provides its own window using public APIs. It does not modify the system Dock or the built-in Downloads stack. The bookmark entitlement persists the folder the user chose; read-only access supports enumeration, metadata, thumbnails, and previews.
 
