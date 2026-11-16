@@ -35,13 +35,15 @@ No signing identity, profile, account credentials, or team ID is stored in this 
 
 ## Draft store listing
 
-**Name:** DownloadScroller  
-**Subtitle:** A scrollable fan for your files  
-**Primary category:** Utilities  
-**Suggested secondary category:** Productivity  
-**Version:** 0.1.0 (change to a release version when ready)  
-**Support URL:** https://github.com/mganesh1610/DownloadScroller/issues  
-**Privacy URL:** https://github.com/mganesh1610/DownloadScroller/blob/main/PRIVACY.md
+| Field | Draft value |
+| --- | --- |
+| Name | DownloadScroller |
+| Subtitle | A scrollable fan for your files |
+| Primary category | Utilities |
+| Suggested secondary category | Productivity |
+| Version | 0.1.0 (change to a release version when ready) |
+| Support URL | https://github.com/mganesh1610/DownloadScroller/issues |
+| Privacy URL | https://github.com/mganesh1610/DownloadScroller/blob/main/PRIVACY.md |
 
 **Promotional text**
 
@@ -65,7 +67,7 @@ DownloadScroller is a standalone utility that opens from its own app icon. It do
 
 On launch, select **Choose Downloads folder** and grant read-only access to Downloads or a test folder through the standard macOS picker. No login is needed. Alternatively, select **Take a look with sample files** to browse 240 generated files in the app's temporary directory.
 
-Scroll in the fan to reach all files. Use the search field, filter buttons, sort menu, or fan/list toggle. Click a file to open it. Use arrow keys and Space (or Command-Y) for Quick Look, or right-click a file for actions. Use the app's menu bar item or click its normal Dock icon to reopen the panel. Command-Q quits the app. **… → Disconnect folder** removes saved folder access.
+Scroll in the fan to reach all files. Use the magnifying glass or Command-F to search. The folder menu at the bottom of the fan offers sorting, filters, list view, and pinning. Click a file to open it. Use arrow keys and Space (or Command-Y) for Quick Look, or right-click a file for actions. Use the app's menu bar item or click its normal Dock icon to reopen the fan. Command-Q quits the app. **Folder menu → Disconnect folder** removes saved folder access.
 
 This app provides its own window using public APIs. It does not modify the system Dock or the built-in Downloads stack. The bookmark entitlement persists the folder the user chose; read-only access supports enumeration, metadata, thumbnails, and previews.
 

@@ -345,7 +345,7 @@ private struct FileRow: View {
                     HStack(spacing: 6) {
                         Text(entry.kind == .folders ? "Folder" : ByteCountFormatter.string(fromByteCount: entry.size, countStyle: .file))
                         Text("·").foregroundStyle(Palette.muted.opacity(0.5))
-                        Text(entry.addedAt, style: .relative).lineLimit(1)
+                        Text(entry.addedAt.formatted(.relative(presentation: .named))).lineLimit(1)
                     }
                     .font(.system(size: 10)).foregroundStyle(Palette.muted)
                 }

@@ -27,6 +27,7 @@ final class ThumbnailStore {
 
 struct FileThumbnail: View {
     let entry: FileEntry
+    var size: CGFloat = 42
     @ViewState private var image: NSImage?
 
     var body: some View {
@@ -34,7 +35,7 @@ struct FileThumbnail: View {
             if let image { Image(nsImage: image).resizable().scaledToFit() }
             else { Image(systemName: entry.kind.symbol).font(.system(size: 26, weight: .light)).foregroundStyle(Palette.mint) }
         }
-        .frame(width: 42, height: 46)
+        .frame(width: size, height: size + 4)
         .shadow(color: .black.opacity(0.22), radius: 3, y: 2)
         .task(id: "\(entry.id):\(entry.modifiedAt):\(entry.size)") {
             let result = await ThumbnailStore.shared.image(for: entry)

@@ -6,6 +6,10 @@ DownloadScroller is a native macOS app that opens a **scrollable file fan** from
 
 **Early preview · macOS 14 or later · Swift + SwiftUI + AppKit · MIT licensed**
 
+<img src="docs/images/fan.png" alt="DownloadScroller's floating Dock-style file fan, using generated sample files" width="420">
+
+The fan uses floating filename capsules and real file icons on a transparent window, with a curve inspired by the macOS Dock fan. It has no surrounding panel or file cards. Scroll with a trackpad or mouse wheel to move through the stack. Search stays tucked away until you click the magnifying glass or press Command-F. The screenshot capture uses a plain backdrop; the running fan floats over your desktop.
+
 This is a standalone app. It does not modify Apple's Downloads stack or replace the Dock process. Its Dock icon opens a floating panel at the usable edge of the current display; its menu bar button opens the panel below that button. The app is **not yet published on the Mac App Store**.
 
 ## Features
@@ -36,7 +40,7 @@ The script builds for the current Mac's architecture, creates the app bundle and
 
 With full Xcode 16 or later, open `DownloadScroller.xcodeproj`, select your signing team, and run the `DownloadScroller` scheme. The native project also supports universal release builds and archives. Its default bundle identifier is `io.github.mganesh1610.DownloadScroller`; use your own identifier for forks.
 
-On first launch, choose Downloads using the folder picker. You can select a different folder or disconnect access from the **…** menu. Keep the app in the Dock manually using the Dock's **Options → Keep in Dock** action if desired. Closing the panel leaves the app running; **⌘Q** quits it. Pinning the panel keeps it visible when switching apps.
+On first launch, choose Downloads using the folder picker. The **folder menu** at the bottom of the fan provides sorting, filters, list view, folder selection, disconnect, and pinning. In list view, use the **…** menu. Keep the app in the Dock manually using the Dock's **Options → Keep in Dock** action if desired. Closing the fan leaves the app running; **⌘Q** quits it. Pinning keeps it visible when switching apps.
 
 ## Keyboard shortcuts
 

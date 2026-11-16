@@ -8,11 +8,22 @@ final class ShelfPanel: NSPanel {
     override var canBecomeMain: Bool { true }
 }
 
+final class TransparentHostingView<Content: View>: NSHostingView<Content> {
+    override var isOpaque: Bool { false }
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.clear.cgColor
+    }
+}
+
 @MainActor
 final class ShelfController: NSWindowController, NSWindowDelegate, @preconcurrency QLPreviewPanelDataSource, QLPreviewPanelDelegate {
     let model: LibraryModel
     private var previewURLs: [URL] = []
     private var previewIndex = 0
+    private var subscriptions = Set<AnyCancellable>()
+    private var lastAnchor: NSRect?
 
     init(model: LibraryModel) {
         self.model = model
@@ -29,19 +40,42 @@ final class ShelfController: NSWindowController, NSWindowDelegate, @preconcurren
         panel.title = "DownloadScroller"
         super.init(window: panel)
         panel.delegate = self
-        panel.contentView = NSHostingView(rootView: ShelfView(model: model))
+        panel.contentView = TransparentHostingView(rootView: RootView(model: model))
         model.onDismiss = { [weak self] in self?.dismiss() }
         model.onPreview = { [weak self] urls, index in self?.preview(urls, index: index) }
+        model.$fanLayout.combineLatest(model.$folder).sink { [weak self] _, _ in
+            DispatchQueue.main.async { self?.positionWindow() }
+        }.store(in: &subscriptions)
+        model.$visibleEntries.map(\.count).removeDuplicates().dropFirst().sink { [weak self] _ in
+            DispatchQueue.main.async {
+                guard self?.model.fanLayout == true else { return }
+                self?.positionWindow()
+            }
+        }.store(in: &subscriptions)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     func show(anchor: NSRect? = nil) {
         guard let window else { return }
+        lastAnchor = anchor
+        positionWindow()
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+        model.refresh()
+    }
+
+    private func positionWindow() {
+        guard let window else { return }
+        let anchor = lastAnchor
         let mouse = NSEvent.mouseLocation
-        let screen = NSScreen.screens.first { $0.frame.contains(anchor?.origin ?? mouse) } ?? NSScreen.main
+        let screen = window.isVisible ? window.screen : NSScreen.screens.first { $0.frame.contains(anchor?.origin ?? mouse) } ?? NSScreen.main
         let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-        let size = NSSize(width: min(490, visible.width - 24), height: min(690, visible.height - 24))
+        let fan = model.fanLayout && model.folder != nil
+        let count = CGFloat(max(1, model.visibleEntries.count))
+        let fanHeight = min(820, max(260, count * 70 + min(125, max(16, (count - 1) * 14)) + 140))
+        let size = NSSize(width: min(fan ? 620 : 490, visible.width - 24), height: min(fan ? fanHeight : 690, visible.height - 24))
+        window.hasShadow = !fan
         let x: CGFloat
         let y: CGFloat
         if let anchor {
@@ -53,9 +87,6 @@ final class ShelfController: NSWindowController, NSWindowDelegate, @preconcurren
             y = visible.minY + 14
         }
         window.setFrame(NSRect(origin: NSPoint(x: x, y: y), size: size), display: true)
-        NSApp.activate(ignoringOtherApps: true)
-        window.makeKeyAndOrderFront(nil)
-        model.refresh()
     }
 
     func dismiss() {
@@ -80,8 +111,11 @@ final class ShelfController: NSWindowController, NSWindowDelegate, @preconcurren
         if panel.isVisible, panel.currentController as AnyObject? === self {
             panel.orderOut(nil)
         } else {
-            panel.makeKeyAndOrderFront(nil)
+            // End search-field editing before resolving the Quick Look responder
+            // chain; NSTextView can otherwise claim the preview panel itself.
+            window?.makeFirstResponder(nil)
             panel.updateController()
+            panel.makeKeyAndOrderFront(nil)
             if panel.currentController as AnyObject? === self {
                 panel.reloadData()
                 panel.currentPreviewItemIndex = previewIndex
@@ -93,6 +127,7 @@ final class ShelfController: NSWindowController, NSWindowDelegate, @preconcurren
     override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) {
         panel.dataSource = self
         panel.delegate = self
+        panel.reloadData()
         panel.currentPreviewItemIndex = previewIndex
     }
     override func endPreviewPanelControl(_ panel: QLPreviewPanel!) {
