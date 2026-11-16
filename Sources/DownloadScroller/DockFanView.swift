@@ -57,32 +57,46 @@ struct DockFanView: View {
                 Spacer()
             } else {
                 GeometryReader { viewport in
+                    let viewportHeight = max(viewport.size.height, 1)
+                    let fanAmount = min(1, CGFloat(max(model.visibleEntries.count - 1, 0)) / 8)
+                    let motionReduced = reduceMotion
                     ScrollViewReader { reader in
                         ScrollView(.vertical, showsIndicators: false) {
                             LazyVStack(spacing: 8) {
                                 Color.clear.frame(height: topPadding).id("fanStart")
                                 ForEach(model.visibleEntries) { entry in
-                                    GeometryReader { row in
-                                        let position = row.frame(in: .named("dockFan")).midY
-                                        let rawProgress = min(max(position / max(viewport.size.height, 1), 0), 1)
-                                        let amount = min(1, CGFloat(max(model.visibleEntries.count - 1, 0)) / 8)
-                                        let progress = 1 - (1 - rawProgress) * amount
-                                        let angle = reduceMotion ? 0 : 19 * pow(1 - progress, 1.15)
-                                        let rightInset = 14 + 57 * pow(progress, 1.7)
-                                        DockFanRow(entry: entry, selected: model.selectedID == entry.id,
-                                                   open: { searchFocused = false; model.selectedID = entry.id; model.open(entry) },
-                                                   preview: { searchFocused = false; model.preview(entry) },
-                                                   reveal: { model.reveal(entry) })
-                                            .padding(.trailing, rightInset)
-                                            .rotationEffect(.degrees(angle), anchor: .trailing)
-                                    }
-                                    .frame(height: 62).id(entry.id)
+                                    DockFanRow(entry: entry, selected: model.selectedID == entry.id,
+                                               open: { searchFocused = false; model.selectedID = entry.id; model.open(entry) },
+                                               preview: { searchFocused = false; model.preview(entry) },
+                                               reveal: { model.reveal(entry) })
+                                        .frame(height: 62)
+                                        .padding(.trailing, 71)
+                                        // Keep row sizes constant. These compositor effects
+                                        // follow scrolling without triggering row layout.
+                                        .visualEffect { content, geometry in
+                                            let position = geometry.frame(in: .named("dockFan")).midY
+                                            let rawProgress = min(max(position / viewportHeight, 0), 1)
+                                            let progress = 1 - (1 - rawProgress) * fanAmount
+                                            let angle = motionReduced ? 0 : 19 * pow(1 - progress, 1.15)
+                                            return content
+                                                .rotationEffect(.degrees(angle), anchor: .trailing)
+                                                .offset(x: 57 * (1 - pow(progress, 1.7)))
+                                        }
+                                        .id(entry.id)
                                 }
                             }
                             // Rotation lifts the left edge of long labels. This
                             // space keeps the first label fully inside the window.
                             .padding(.leading, 16).padding(.bottom, 18)
+                            .frame(maxWidth: .infinity)
+                            .contentShape(Rectangle())
                         }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .contentShape(Rectangle())
+                        // Fully clear pixels in a borderless macOS window can pass
+                        // input to the app behind it. One alpha step keeps the whole
+                        // viewport interactive without a visible panel background.
+                        .background(Color.black.opacity(1.0 / 255.0))
                         .coordinateSpace(name: "dockFan")
                         .scrollIndicators(.never)
                         .scrollContentBackground(.hidden)
@@ -176,31 +190,35 @@ private struct DockFanRow: View {
     @ViewState private var hovering = false
 
     var body: some View {
-        Button(action: open) {
-            HStack(spacing: 11) {
-                Spacer(minLength: 0)
-                Text(entry.name)
-                    .font(.system(size: 13)).lineLimit(1).truncationMode(.middle)
-                    .padding(.horizontal, 12).padding(.vertical, 5)
-                    .background(hovering ? Color.accentColor.opacity(0.9) : .black.opacity(selected ? 0.68 : 0.52), in: Capsule())
-                    .overlay(Capsule().strokeBorder(.white.opacity(selected || hovering ? 0.26 : 0.12), lineWidth: 0.5))
-                    .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
-                    .fixedSize(horizontal: false, vertical: true)
-                FileThumbnail(entry: entry, size: 54)
+        HStack(spacing: 0) {
+            Spacer(minLength: 0)
+            // Only the label and icon open a file. The surrounding space belongs
+            // to the scroll viewport, including the gaps between angled rows.
+            Button(action: open) {
+                HStack(spacing: 11) {
+                    Text(entry.name)
+                        .font(.system(size: 13)).lineLimit(1).truncationMode(.middle)
+                        .padding(.horizontal, 12).padding(.vertical, 5)
+                        .background(hovering ? Color.accentColor.opacity(0.9) : .black.opacity(selected ? 0.68 : 0.52), in: Capsule())
+                        .overlay(Capsule().strokeBorder(.white.opacity(selected || hovering ? 0.26 : 0.12), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
+                        .fixedSize(horizontal: false, vertical: true)
+                    FileThumbnail(entry: entry, size: 54)
+                }
+                .contentShape(Rectangle())
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain).onHover { hovering = $0 }.help(entry.name)
+            .accessibilityLabel(entry.name)
+            .accessibilityValue(entry.kind.title)
+            .accessibilityHint("Open file. Use the context menu to preview or reveal in Finder.")
+            .accessibilityAddTraits(selected ? .isSelected : [])
+            .contextMenu {
+                Button("Open", systemImage: "arrow.up.right.square", action: open)
+                Button("Quick Look", systemImage: "eye", action: preview)
+                Button("Show in Finder", systemImage: "folder", action: reveal)
+            }
         }
-        .buttonStyle(.plain).onHover { hovering = $0 }.help(entry.name)
-        .accessibilityLabel(entry.name)
-        .accessibilityValue(entry.kind.title)
-        .accessibilityHint("Open file. Use the context menu to preview or reveal in Finder.")
-        .accessibilityAddTraits(selected ? .isSelected : [])
-        .contextMenu {
-            Button("Open", systemImage: "arrow.up.right.square", action: open)
-            Button("Quick Look", systemImage: "eye", action: preview)
-            Button("Show in Finder", systemImage: "folder", action: reveal)
-        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
     }
 }
 

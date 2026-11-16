@@ -8,7 +8,7 @@ DownloadScroller is a native macOS app that opens a **scrollable file fan** from
 
 <img src="docs/images/fan.png" alt="DownloadScroller's floating Dock-style file fan, using generated sample files" width="420">
 
-The fan uses floating filename capsules and real file icons on a transparent window, with a curve inspired by the macOS Dock fan. It has no surrounding panel or file cards. Scroll with a trackpad or mouse wheel to move through the stack. Search stays tucked away until you click the magnifying glass or press Command-F. The screenshot capture uses a plain backdrop; the running fan floats over your desktop.
+The fan uses floating filename capsules and real file icons on a transparent window, with a curve inspired by the macOS Dock fan. It has no surrounding panel or file cards. Scroll with a trackpad or mouse wheel anywhere in the fan's browsing area, including the gaps between files and the empty space beside them. Search stays tucked away until you click the magnifying glass or press Command-F. The screenshot capture uses a plain backdrop; the running fan floats over your desktop.
 
 This is a standalone app. It does not modify Apple's Downloads stack or replace the Dock process. Its Dock icon opens a floating panel at the usable edge of the current display; its menu bar button opens the panel below that button. The app is **not yet published on the Mac App Store**.
 

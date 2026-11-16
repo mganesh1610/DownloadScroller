@@ -34,6 +34,14 @@ The initial native version passed all five XCTest cases and the arm64 + x86_64 X
 
 Text and PNG Quick Look were verified. SVG and CSV preview attempts on this Mac displayed a loading indicator rather than promptly rendering, while SVG thumbnails did render. CSV was rechecked after the focus-handling fix and still stalled. Quick Look is delegated to installed macOS providers; these formats need further testing before claiming broad preview coverage.
 
+## Scrolling gap regression
+
+The fan now defines one rectangular scroll surface behind the floating files, including empty space. Its background retains a single alpha step so macOS can route input over otherwise fully transparent pixels. File buttons cover their labels and icons; clicking blank space does not open a file.
+
+Rows keep fixed dimensions during scrolling. The curve uses SwiftUI `visualEffect` transforms instead of changing layout padding from each row's `GeometryReader`. Native `ScrollView` continues to handle wheel deltas and trackpad momentum.
+
+Manual checks with the 240-file sample folder verified forward scrolling between rows, in the blank area to the left, and along the right edge beside the icons. Reverse scrolling over blank space also worked. A click in blank space left the fan unchanged, while clicking a visible text-file label opened the correct document in TextEdit. These are input and interaction checks, not a frame-rate benchmark.
+
 ## Release checklist still required
 
 - Signed Xcode archive validation, provisioning, TestFlight, and App Review.
