@@ -11,7 +11,7 @@ DownloadScroller 0.1.0 is an early preview. The source and native project are pr
 - Privacy manifest declaring no tracking or collection, plus required reasons for preferences and file metadata.
 - MIT source license, public privacy policy, support channel, and draft store listing below.
 
-The application does not patch the Dock, use private APIs, inject code, request Accessibility or Full Disk Access, or require an administrator. It does not add itself to the Dock or configure login items automatically. The Dock icon is the app's normal running-app icon.
+The application does not patch the Dock, use private APIs, inject code, request Accessibility or Full Disk Access, or require an administrator. It does not add itself to the Dock or configure login items automatically. While running, the app uses the public `NSApplication.applicationIconImage` API to show its newest completed file in the Dock. The bundled icon remains the app's static identity.
 
 ## Publisher steps
 
@@ -53,9 +53,9 @@ Give your Downloads room to breathe. Scroll a familiar file fan, find what you n
 
 DownloadScroller puts a scrollable file fan a click away in your Dock and menu bar.
 
-Choose your Downloads folder or another folder you use often. Browse every visible file in a continuous scroll, switch to a compact list, and find items by name or type. Sort by newest, oldest, name, size, or kind. Preview supported files with Quick Look, open them in their usual apps, or reveal them in Finder.
+Choose your Downloads folder or another folder you use often. Browse every visible file in a continuous fan, with smooth mouse-wheel movement, native trackpad momentum, and search at the bottom. Find items by name or type. Sort by newest, oldest, name, size, or kind. Preview supported files with Quick Look, open them in their usual apps, or reveal them in Finder.
 
-New files appear as the folder changes. Your selected folder is remembered between launches. Keyboard navigation, search shortcuts, and a pin option help you keep things close at hand.
+New files appear as the folder changes, and the running Dock icon shows the newest completed file. Your selected folder is remembered between launches. Keyboard navigation, search shortcuts, and a pin option help you keep things close at hand.
 
 DownloadScroller works locally, with read-only folder access. No account, advertising, or analytics. Its source code is available under the MIT license.
 
@@ -67,7 +67,7 @@ DownloadScroller is a standalone utility that opens from its own app icon. It do
 
 On launch, select **Choose Downloads folder** and grant read-only access to Downloads or a test folder through the standard macOS picker. No login is needed. Alternatively, select **Take a look with sample files** to browse 240 generated files in the app's temporary directory.
 
-Scroll in the fan to reach all files. Use the magnifying glass or Command-F to search. The folder menu at the bottom of the fan offers sorting, filters, list view, and pinning. Click a file to open it. Use arrow keys and Space (or Command-Y) for Quick Look, or right-click a file for actions. Use the app's menu bar item or click its normal Dock icon to reopen the fan. Command-Q quits the app. **Folder menu → Disconnect folder** removes saved folder access.
+Scroll in the fan to reach all files. Use the magnifying glass or Command-F to search. The folder menu at the bottom of the fan offers sorting, filters, and pinning. There is one fan layout. Click a file to open it. Use arrow keys and Space (or Command-Y) for Quick Look, or right-click a file for actions. Use the app's menu bar item or click its Dock icon to reopen the fan. Command-Q quits the app. **Folder menu → Disconnect folder** removes saved folder access.
 
 This app provides its own window using public APIs. It does not modify the system Dock or the built-in Downloads stack. The bookmark entitlement persists the folder the user chose; read-only access supports enumeration, metadata, thumbnails, and previews.
 
@@ -77,7 +77,7 @@ For the code currently in this repository, the intended App Privacy answer is **
 
 ## Screenshots to prepare
 
-Use actual app captures with generated sample files, with no personal downloads visible. Show the fan with many files, search results, list view, and Quick Look. The development screenshots in this repository are review aids; prepare store uploads at Apple's current accepted dimensions. Do not claim that the app changes the native Dock stack.
+Use actual app captures with generated sample files, with no personal downloads visible. Show the fan with many files, bottom search results, and Quick Look. The development screenshots in this repository are review aids; prepare store uploads at Apple's current accepted dimensions. Do not claim that the app changes the native Dock stack.
 
 ## Apple references
 
@@ -87,3 +87,4 @@ Use actual app captures with generated sample files, with no personal downloads 
 - [Required-reason APIs](https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitype)
 - [Upload builds](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds)
 - [Developer membership details](https://developer.apple.com/programs/whats-included/)
+- [Changing the running application icon](https://developer.apple.com/documentation/appkit/nsapplication/applicationiconimage)

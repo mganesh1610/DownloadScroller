@@ -6,9 +6,9 @@ DownloadScroller works locally on your Mac. The app does not collect or transmit
 
 ## Folder access
 
-You choose a folder using the standard macOS folder picker. DownloadScroller uses read-only access to list that folder's immediate visible items, show names and metadata, generate thumbnails, and provide previews. It does not modify or delete your selected files.
+You choose a folder using the standard macOS folder picker. DownloadScroller uses read-only access to list that folder's immediate visible items, show names and metadata, generate thumbnails, show the newest completed file as the running Dock icon, and provide previews. It does not modify or delete your selected files.
 
-The app stores a security-scoped bookmark in its local preferences so it can reopen the selected folder after relaunch. View and sort preferences are also stored locally. Use **Folder menu → Disconnect folder** (or **… → Disconnect folder** in list view) to remove the stored bookmark. The sample-files feature creates sample documents in the app's temporary directory. It does not use your Downloads folder.
+The app stores a security-scoped bookmark in its local preferences so it can reopen the selected folder after relaunch. The sort preference is also stored locally. Use **Folder menu → Disconnect folder** to remove the stored bookmark. The sample-files feature creates sample documents in the app's temporary directory. It does not use your Downloads folder.
 
 ## macOS services and other apps
 

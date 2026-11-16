@@ -16,10 +16,8 @@ final class LibraryModel: ObservableObject {
     @Published var filter: FileKind? { didSet { updateQuery() } }
     @Published var selectedID: String?
     @Published var searchFocusRequest = 0
+    @Published var selectionScrollRequest = 0
     @Published var pinned = false
-    @Published var fanLayout: Bool {
-        didSet { UserDefaults.standard.set(fanLayout, forKey: "fanLayout") }
-    }
     @Published var sort: FileSort {
         didSet {
             UserDefaults.standard.set(sort.rawValue, forKey: "fileSort")
@@ -39,7 +37,6 @@ final class LibraryModel: ObservableObject {
 
     init() {
         let defaults = UserDefaults.standard
-        fanLayout = defaults.object(forKey: "fanLayout") as? Bool ?? true
         sort = FileSort(rawValue: defaults.string(forKey: "fileSort") ?? "") ?? .newest
     }
 
@@ -172,6 +169,7 @@ final class LibraryModel: ObservableObject {
         guard !visibleEntries.isEmpty else { return }
         let current = visibleEntries.firstIndex { $0.id == selectedID } ?? (delta > 0 ? -1 : visibleEntries.count)
         selectedID = visibleEntries[min(max(current + delta, 0), visibleEntries.count - 1)].id
+        selectionScrollRequest += 1
     }
 
     func open(_ entry: FileEntry? = nil) {

@@ -43,12 +43,12 @@ final class ShelfController: NSWindowController, NSWindowDelegate, @preconcurren
         panel.contentView = TransparentHostingView(rootView: RootView(model: model))
         model.onDismiss = { [weak self] in self?.dismiss() }
         model.onPreview = { [weak self] urls, index in self?.preview(urls, index: index) }
-        model.$fanLayout.combineLatest(model.$folder).sink { [weak self] _, _ in
+        model.$folder.sink { [weak self] _ in
             DispatchQueue.main.async { self?.positionWindow() }
         }.store(in: &subscriptions)
-        model.$visibleEntries.map(\.count).removeDuplicates().dropFirst().sink { [weak self] _ in
+        model.$entries.map(\.count).removeDuplicates().dropFirst().sink { [weak self] _ in
             DispatchQueue.main.async {
-                guard self?.model.fanLayout == true else { return }
+                guard self?.model.folder != nil else { return }
                 self?.positionWindow()
             }
         }.store(in: &subscriptions)
@@ -71,9 +71,9 @@ final class ShelfController: NSWindowController, NSWindowDelegate, @preconcurren
         let mouse = NSEvent.mouseLocation
         let screen = window.isVisible ? window.screen : NSScreen.screens.first { $0.frame.contains(anchor?.origin ?? mouse) } ?? NSScreen.main
         let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-        let fan = model.fanLayout && model.folder != nil
-        let count = CGFloat(max(1, model.visibleEntries.count))
-        let fanHeight = min(820, max(260, count * 70 + min(125, max(16, (count - 1) * 14)) + 140))
+        let fan = model.folder != nil
+        let count = CGFloat(max(1, model.entries.count))
+        let fanHeight = min(820, max(260, count * 74 + min(125, max(16, (count - 1) * 14)) + 140))
         let size = NSSize(width: min(fan ? 620 : 490, visible.width - 24), height: min(fan ? fanHeight : 690, visible.height - 24))
         window.hasShadow = !fan
         let x: CGFloat
@@ -144,11 +144,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var controller: ShelfController!
     private var statusItem: NSStatusItem!
     private var eventMonitor: Any?
+    private var dockIcon: DockIconController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         buildMenu()
         controller = ShelfController(model: model)
+        dockIcon = DockIconController(model: model)
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem.button {
             button.image = NSImage(systemSymbolName: "square.stack.3d.up", accessibilityDescription: "DownloadScroller")
@@ -188,6 +190,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         if let eventMonitor { NSEvent.removeMonitor(eventMonitor) }
+        dockIcon?.stop()
         model.shutdown()
     }
 

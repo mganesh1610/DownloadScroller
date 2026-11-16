@@ -24,6 +24,9 @@ enum CLTTestRunner {
         tests.testKindsDoNotTreatApplicationPackagesAsFolders()
         try tests.testFolderScanIncludesEveryVisibleItemWithoutRecursing()
         tests.testMissingFolderPropagatesAnError()
-        print("PASS: 5 core scenarios (search, sorts, file types, 240-file scan, missing-folder error)")
+        tests.testDockUsesNewestCompletedFileIndependentOfDisplayOrder()
+        tests.testWheelMotionIsContinuousAndIndependentOfRefreshRate()
+        tests.testWheelReversalAndBoundsDoNotLeaveQueuedDrift()
+        print("PASS: 8 core scenarios (file queries, scan, Dock file selection, wheel continuity, refresh rates, reversal and bounds)")
     }
 }

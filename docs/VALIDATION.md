@@ -2,7 +2,7 @@
 
 This document distinguishes completed checks from release work. App Store readiness requires further testing and account setup.
 
-## Local checks completed
+## Earlier local checks (before the native-scroll update)
 
 Environment: Apple Silicon Mac, macOS 27.0.1, Apple Swift 6.4.2 Command Line Tools. No full Xcode installation or distribution signing identity was available locally.
 
@@ -24,7 +24,7 @@ Environment: Apple Silicon Mac, macOS 27.0.1, Apple Swift 6.4.2 Command Line Too
 - Opening a generated text file from the fan launched TextEdit with the expected document contents and dismissed the unpinned fan.
 - The finished app was copied to the local user's Applications folder, its signature reverified, and its onboarding screen opened successfully.
 
-The local `swift test` command cannot run because Apple's Command Line Tools installation does not contain XCTest. `scripts/test-core.sh` provides a small assertion adapter and executes the same five test methods. CI uses full Xcode and runs real XCTest plus the native universal application build.
+The local `swift test` command cannot run because Apple's Command Line Tools installation does not contain XCTest. `scripts/test-core.sh` provides a small assertion adapter and now executes the same eight test methods. CI uses full Xcode and runs real XCTest plus the native universal application build.
 
 ## CI verification
 
@@ -34,13 +34,26 @@ The initial native version passed all five XCTest cases and the arm64 + x86_64 X
 
 Text and PNG Quick Look were verified. SVG and CSV preview attempts on this Mac displayed a loading indicator rather than promptly rendering, while SVG thumbnails did render. CSV was rechecked after the focus-handling fix and still stalled. Quick Look is delegated to installed macOS providers; these formats need further testing before claiming broad preview coverage.
 
-## Scrolling gap regression
+## Native fan and regular-wheel update
 
 The fan now defines one rectangular scroll surface behind the floating files, including empty space. Its background retains a single alpha step so macOS can route input over otherwise fully transparent pixels. File buttons cover their labels and icons; clicking blank space does not open a file.
 
-Rows keep fixed dimensions during scrolling. The curve uses SwiftUI `visualEffect` transforms instead of changing layout padding from each row's `GeometryReader`. Native `ScrollView` continues to handle wheel deltas and trackpad momentum.
+The fan uses an AppKit `NSScrollView` with a fixed-height document and only the visible file layers. There is no lazy-row size estimation. Curve transforms update with implicit layer animation disabled. Regular mouse-wheel notches are interpolated on the display refresh clock; precise events and their momentum stay with AppKit. Reduce Motion uses direct AppKit scrolling and an unrotated arrangement.
 
-Manual checks with the 240-file sample folder verified forward scrolling between rows, in the blank area to the left, and along the right edge beside the icons. Reverse scrolling over blank space also worked. A click in blank space left the fan unchanged, while clicking a visible text-file label opened the correct document in TextEdit. These are input and interaction checks, not a frame-rate benchmark.
+Eight core scenarios passed locally. The added cases verify newest completed-file selection (excluding folders and known partial extensions), gradual wheel travel, matching displacement at 60/120 Hz, direction reversal, bounded queued travel, and clamping at both ends. These are deterministic motion tests, not measured frame-rate or physical-device benchmarks.
+
+The sandboxed release app was rebuilt and its ad-hoc signature verified. Native UI checks with generated samples covered:
+
+- All 240 files, including the last item, are reachable.
+- Forward scrolling in the blank area and at the right edge; reverse scrolling between rows.
+- Blank clicks leave files unopened; clicking a rotated filename opens the correct text file.
+- Context-menu Quick Look displays the selected text document; Command-Y from search displays the matching PNG.
+- Command-F opens search at the bottom. A single result stays near the bottom, and typing leaves the window height stable.
+- File accessibility buttons are enabled and labelled; broader VoiceOver testing remains on the release checklist.
+- The folder menu has no list-view option.
+- Original gray capsules, native icons, and higher-resolution previews were visually inspected. Public screenshots contain generated sample files only.
+
+The dynamic icon is driven by all scanned entries, independently of visible results, through the public AppKit icon API. Newest-file selection has automated coverage. A direct visual check of the Dock icon and its behavior across Dock settings remains a release check; the automation could not capture the Dock surface on this Mac.
 
 ## Release checklist still required
 

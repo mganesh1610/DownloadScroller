@@ -57,4 +57,53 @@ final class FileLibraryTests: XCTestCase {
     func testMissingFolderPropagatesAnError() {
         XCTAssertThrowsError(try FolderScanner.scan(URL(fileURLWithPath: "/nonexistent-\(UUID())")))
     }
+
+    func testDockUsesNewestCompletedFileIndependentOfDisplayOrder() {
+        let files = [entry("Newest folder", kind: .folders, time: 900), entry("Incoming.CRDOWNLOAD", time: 800),
+                     entry("Draft.pdf.part", time: 700), entry("Newest.pdf", time: 600), entry("Older.png", kind: .images, time: 500)]
+        XCTAssertEqual(DockFile.newest(in: files)?.name, "Newest.pdf")
+        XCTAssertEqual(DockFile.newest(in: files.reversed())?.name, "Newest.pdf")
+        XCTAssertEqual(DockFile.newest(in: Array(files.prefix(3))), nil)
+        XCTAssertEqual(DockFile.newest(in: []), nil)
+    }
+
+    func testWheelMotionIsContinuousAndIndependentOfRefreshRate() {
+        var sixty = WheelMotion(), oneTwenty = WheelMotion()
+        sixty.push(96, maximum: 1000)
+        oneTwenty.push(96, maximum: 1000)
+        var previous = 0.0
+        for _ in 0..<12 {
+            let next = sixty.advance(seconds: 1.0 / 60, maximum: 1000)
+            XCTAssertFalse(next <= previous || next >= 96)
+            // A wheel notch must be spread over frames, not applied in one jump.
+            XCTAssertFalse(next - previous > 26)
+            previous = next
+        }
+        for _ in 0..<24 { oneTwenty.advance(seconds: 1.0 / 120, maximum: 1000) }
+        XCTAssertFalse(abs(sixty.position - oneTwenty.position) > 0.0001)
+        for _ in 0..<60 { sixty.advance(seconds: 1.0 / 60, maximum: 1000) }
+        XCTAssertEqual(sixty.position, 96)
+        XCTAssertFalse(sixty.isMoving)
+    }
+
+    func testWheelReversalAndBoundsDoNotLeaveQueuedDrift() {
+        var wheel = WheelMotion()
+        wheel.reset(to: 200)
+        for _ in 0..<20 { wheel.push(48, maximum: 1000) }
+        XCTAssertEqual(wheel.target, 480)
+        wheel.advance(seconds: 1.0 / 60, maximum: 1000)
+        let beforeReversal = wheel.position
+        wheel.push(-48, maximum: 1000)
+        XCTAssertFalse(wheel.advance(seconds: 1.0 / 60, maximum: 1000) >= beforeReversal)
+        wheel.reset(to: 995)
+        wheel.push(48, maximum: 1000)
+        XCTAssertEqual(wheel.target, 1000)
+        for _ in 0..<60 { wheel.advance(seconds: 1.0 / 60, maximum: 1000) }
+        XCTAssertEqual(wheel.position, 1000)
+        wheel.advance(seconds: 1, maximum: 80)
+        XCTAssertEqual(wheel.position, 80)
+        wheel.reset(to: 0)
+        wheel.push(-48, maximum: 80)
+        XCTAssertFalse(wheel.isMoving)
+    }
 }
