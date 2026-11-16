@@ -43,6 +43,9 @@ struct DockFanView: View {
                 Spacer()
             } else {
                 NativeFanView(model: model, reduceMotion: reduceMotion)
+                    // Preserve window input coverage beneath the visual edge
+                    // fade, including otherwise empty pixels near the bounds.
+                    .background(Color.black.opacity(1.0 / 255))
             }
 
             if searching || !model.search.isEmpty {
