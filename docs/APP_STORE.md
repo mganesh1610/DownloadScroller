@@ -7,11 +7,12 @@ DownloadScroller 0.1.0 is an early preview. The source and native project are pr
 - Native macOS Xcode application target, shared scheme, and universal architecture configuration.
 - App Sandbox with user-selected **read-only** access and app-scoped bookmarks.
 - Public AppKit, SwiftUI, Foundation, Quick Look, and Uniform Type Identifiers APIs.
-- App icon at all required traditional macOS icon sizes.
+- Original app logo at all required traditional macOS icon sizes, also used as the recent-file Dock badge.
+- System appearance and accessibility-aware controls, with native Liquid Glass on macOS 26 or later when built with Xcode 26 or later, and native material fallback on older supported systems.
 - Privacy manifest declaring no tracking or collection, plus required reasons for preferences and file metadata.
 - MIT source license, public privacy policy, support channel, and draft store listing below.
 
-The application does not patch the Dock, use private APIs, inject code, request Accessibility or Full Disk Access, or require an administrator. It does not add itself to the Dock or configure login items automatically. While running, the app uses the public `NSApplication.applicationIconImage` API to show its newest completed file with a DownloadScroller “DS” badge in the Dock. The bundled icon remains the app's static identity.
+The application does not patch the Dock, use private APIs, inject code, request Accessibility or Full Disk Access, or require an administrator. It does not add itself to the Dock or configure login items automatically. While running, the app uses the public `NSApplication.applicationIconImage` API to show its newest completed file with the DownloadScroller logo as a badge in the Dock. The runtime logo follows light/dark appearance; the bundled icon remains the app's static identity.
 
 ## Publisher steps
 
@@ -53,9 +54,9 @@ Give your Downloads room to breathe. Scroll a familiar file fan, find what you n
 
 DownloadScroller puts a scrollable file fan a click away in your Dock and menu bar.
 
-Choose your Downloads folder or another folder you use often. Browse every visible file in a continuous fan, with smooth mouse-wheel movement, native trackpad momentum, and search at the bottom. Find items by name or type. Sort by newest, oldest, name, size, or kind. Preview supported files with Quick Look, open them in their usual apps, or reveal them in Finder.
+Choose your Downloads folder or another folder you use often. Recent files appear at the bottom, closest to your Dock; scroll up to browse older files. Browse every visible file in a continuous fan, with compact icons, smooth mouse-wheel movement, native trackpad momentum, and search at the bottom. Find items by name or type. Sort by newest, oldest, name, size, or kind. Preview supported files with Quick Look, open them in their usual apps, or reveal them in Finder.
 
-New files appear as the folder changes, and the running Dock icon shows the newest completed file. Your selected folder is remembered between launches. Keyboard navigation, search shortcuts, and a pin option help you keep things close at hand.
+New files appear as the folder changes, and the running Dock icon shows the newest completed file with the app's logo badge. Native macOS materials and controls follow your system's appearance and accessibility preferences. Your selected folder is remembered between launches. Keyboard navigation, search shortcuts, and a pin option help you keep things close at hand.
 
 DownloadScroller works locally, with read-only folder access. No account, advertising, or analytics. Its source code is available under the MIT license.
 
@@ -67,7 +68,7 @@ DownloadScroller is a standalone utility that opens from its own app icon. It do
 
 On launch, select **Choose Downloads folder** and grant read-only access to Downloads or a test folder through the standard macOS picker. No login is needed. Alternatively, select **Take a look with sample files** to browse 240 generated files in the app's temporary directory.
 
-Scroll in the fan to reach all files. Use the magnifying glass or Command-F to search. The folder menu at the bottom of the fan offers sorting, filters, and pinning. There is one fan layout. Click a file to open it. Use arrow keys and Space (or Command-Y) for Quick Look, or right-click a file for actions. Use the app's menu bar item or click its Dock icon to reopen the fan. The fan closes when clicking outside or opening a system menu; **Keep window open** preserves it. Outside-click detection uses a public, mouse-only event monitor while the fan is open, with no Accessibility permission request. Command-Q quits the app. **Folder menu → Disconnect folder** removes saved folder access.
+Scroll up from the newest file at the bottom to reach older files. Use the magnifying glass or Command-F to search. The folder menu at the bottom of the fan offers sorting, filters, and pinning. There is one fan layout. Click a file to open it. Use arrow keys and Space (or Command-Y) for Quick Look, or right-click a file for actions. Use the app's menu bar item or click its Dock icon to reopen the fan. The fan closes when clicking outside or opening a system menu; **Keep window open** preserves it. Outside-click detection uses a public, mouse-only event monitor while the fan is open, with no Accessibility permission request. Command-Q quits the app. **Folder menu → Disconnect folder** removes saved folder access.
 
 This app provides its own window using public APIs. It does not modify the system Dock or the built-in Downloads stack. The bookmark entitlement persists the folder the user chose; read-only access supports enumeration, metadata, thumbnails, and previews.
 

@@ -21,13 +21,13 @@ struct DockFanView: View {
                     Text(message).font(.system(size: 12))
                     Button("Reconnect…") { model.chooseFolder() }
                 }
-                .padding(12).background(.black.opacity(0.75), in: RoundedRectangle(cornerRadius: 15))
+                .padding(12).systemControlSurface(radius: 15)
                 .padding(.horizontal, 30).padding(.top, 12)
             }
 
             if model.loading && model.entries.isEmpty {
                 Spacer()
-                ProgressView().padding(20).background(.black.opacity(0.6), in: Capsule()).padding(.trailing, 40)
+                ProgressView().padding(20).systemControlSurface().padding(.trailing, 40)
                 Spacer()
             } else if model.visibleEntries.isEmpty {
                 Spacer()
@@ -35,10 +35,10 @@ struct DockFanView: View {
                     Text(model.entries.isEmpty ? "This folder is empty" : "No matching files")
                         .font(.system(size: 14, weight: .medium))
                     if !model.entries.isEmpty {
-                        Button("Show all files") { model.search = ""; model.filter = nil }.buttonStyle(.plain)
+                        Button("Show all files") { model.search = ""; model.filter = nil }.buttonStyle(.borderless)
                     }
                 }
-                .padding(20).background(.black.opacity(0.65), in: RoundedRectangle(cornerRadius: 16))
+                .padding(20).systemControlSurface(radius: 16)
                 .padding(.trailing, 26)
                 Spacer()
             } else {
@@ -52,19 +52,17 @@ struct DockFanView: View {
                         .focused($searchFocused).accessibilityLabel("Search files")
                         .onSubmit { searchFocused = false; model.open() }
                     Button { model.search = ""; searching = false; searchFocused = false } label: { Image(systemName: "xmark.circle.fill") }
-                        .buttonStyle(.plain).accessibilityLabel("Close search")
+                        .buttonStyle(.borderless).accessibilityLabel("Close search")
                 }
                 .font(.system(size: 13)).padding(.horizontal, 14).padding(.vertical, 11)
-                .background(Color(white: 0.20).opacity(0.96), in: Capsule())
-                .overlay(Capsule().strokeBorder(.white.opacity(0.15)))
-                .frame(width: 350).padding(.trailing, 39).padding(.bottom, 10)
+                .systemControlSurface()
+                .frame(width: 330).padding(.trailing, 27).padding(.bottom, 10)
             }
 
-            controls.padding(.trailing, 39).padding(.bottom, 9)
+            controls.padding(.trailing, 27).padding(.bottom, 9)
         }
-        .foregroundStyle(.white.opacity(0.96))
+        .foregroundStyle(.primary)
         .background(Color.clear)
-        .preferredColorScheme(.dark)
         .onChange(of: model.searchFocusRequest) { _, _ in searching = true; searchFocused = true }
         .onExitCommand {
             if !model.search.isEmpty { model.search = "" }
@@ -75,9 +73,9 @@ struct DockFanView: View {
 
     private var controls: some View {
         VStack(alignment: .trailing, spacing: 9) {
-            Text("\(model.visibleEntries.count) \(model.visibleEntries.count == 1 ? "item" : "items")\(model.visibleEntries.count > 10 ? " · Scroll to browse" : "")")
+            Text("\(model.visibleEntries.count) \(model.visibleEntries.count == 1 ? "item" : "items")\(model.visibleEntries.count > 10 ? (model.sort == .newest ? " · Scroll up for older files" : " · Scroll up to browse") : "")")
                 .font(.system(size: 11)).padding(.horizontal, 11).padding(.vertical, 5)
-                .background(Color(white: 0.23).opacity(0.92), in: Capsule())
+                .background(NativeMaterial(radius: 12))
                 .padding(.trailing, 17)
             HStack(spacing: 13) {
                 Menu {
@@ -107,18 +105,16 @@ struct DockFanView: View {
                 Button { searching.toggle(); searchFocused = searching } label: {
                     Image(systemName: "magnifyingglass")
                 }
-                .buttonStyle(.plain).help("Search files · ⌘F").accessibilityLabel("Search files")
+                .buttonStyle(.borderless).help("Search files · ⌘F").accessibilityLabel("Search files")
                 Button { model.openFolder() } label: { Image(systemName: "arrow.up.forward.square") }
-                    .buttonStyle(.plain).help("Open in Finder").accessibilityLabel("Open in Finder")
+                    .buttonStyle(.borderless).help("Open in Finder").accessibilityLabel("Open in Finder")
                 Button { model.onDismiss?() } label: { Image(systemName: "xmark").font(.system(size: 10, weight: .semibold)) }
-                    .buttonStyle(.plain).help("Close · Esc").accessibilityLabel("Close window")
+                    .buttonStyle(.borderless).help("Close · Esc").accessibilityLabel("Close window")
             }
             .font(.system(size: 13)).padding(.horizontal, 15).frame(height: 37)
-            .background(Color(white: 0.20).opacity(0.96), in: Capsule())
-            .overlay(Capsule().strokeBorder(.white.opacity(0.12)))
+            .systemControlSurface()
             .fixedSize(horizontal: true, vertical: false)
         }
-        .shadow(color: .black.opacity(0.25), radius: 5, y: 2)
     }
 }
 

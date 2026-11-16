@@ -65,6 +65,7 @@ final class ShelfController: NSWindowController, NSWindowDelegate, @preconcurren
 
     func show(anchor: NSRect? = nil) {
         guard let window else { return }
+        model.prepareToShow()
         lastAnchor = anchor
         positionWindow()
         NSApp.activate(ignoringOtherApps: true)
@@ -81,8 +82,8 @@ final class ShelfController: NSWindowController, NSWindowDelegate, @preconcurren
         let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let fan = model.folder != nil
         let count = CGFloat(max(1, model.entries.count))
-        let fanHeight = min(820, max(260, count * 74 + min(125, max(16, (count - 1) * 14)) + 140))
-        let size = NSSize(width: min(fan ? 620 : 490, visible.width - 24), height: min(fan ? fanHeight : 690, visible.height - 24))
+        let fanHeight = min(780, max(260, count * 58 + min(112, max(20, (count - 1) * 14)) + 120))
+        let size = NSSize(width: min(fan ? 560 : 490, visible.width - 24), height: min(fan ? fanHeight : 690, visible.height - 24))
         window.hasShadow = !fan
         let x: CGFloat
         let y: CGFloat
@@ -188,6 +189,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
+        SystemAppearance.configurePreview()
         buildMenu()
         controller = ShelfController(model: model)
         dockIcon = DockIconController(model: model)
@@ -198,8 +200,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             button.target = self
             button.action = #selector(toggleShelf)
         }
-        if ProcessInfo.processInfo.arguments.contains("--sample-files") { model.useSamples() }
-        else { model.restore() }
+        if !ProcessInfo.processInfo.arguments.contains("--preview-onboarding") {
+            if ProcessInfo.processInfo.arguments.contains("--sample-files") { model.useSamples() }
+            else { model.restore() }
+        }
         eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self, self.controller.window?.isKeyWindow == true else { return event }
             if event.modifierFlags.intersection(.deviceIndependentFlagsMask).contains(.command) { return event }

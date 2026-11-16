@@ -11,7 +11,7 @@ cp "$BIN_DIR/DownloadScroller" "$APP_PATH/Contents/MacOS/DownloadScroller"
 cp Config/Info.plist "$APP_PATH/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier io.github.mganesh1610.DownloadScroller" "$APP_PATH/Contents/Info.plist"
 cp Sources/DownloadScroller/Resources/PrivacyInfo.xcprivacy "$APP_PATH/Contents/Resources/"
-swift scripts/generate-icon.swift .build/AppIcon.iconset
+bash scripts/render-icon.sh .build/AppIcon.iconset
 iconutil -c icns .build/AppIcon.iconset -o "$APP_PATH/Contents/Resources/AppIcon.icns"
 codesign --force --sign "${SIGN_IDENTITY:--}" --options runtime \
   --entitlements Config/DownloadScroller.entitlements "$APP_PATH"

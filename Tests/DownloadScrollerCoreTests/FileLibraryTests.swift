@@ -67,6 +67,22 @@ final class FileLibraryTests: XCTestCase {
         XCTAssertEqual(DockFile.newest(in: []), nil)
     }
 
+    func testFanUnfoldsFromNewestAtBottomTowardOlderFiles() {
+        let files = [entry("Old.pdf", time: 10), entry("New.pdf", time: 30), entry("Middle.pdf", time: 20)]
+        XCTAssertEqual(FileQuery.fanOrder(files).map(\.name), ["Old.pdf", "Middle.pdf", "New.pdf"])
+        XCTAssertEqual(FileQuery.fanOrder(files, sort: .oldest).last?.name, "Old.pdf")
+        XCTAssertEqual(FileQuery.fanOrder(files, sort: .name).last?.name, "Middle.pdf")
+        XCTAssertEqual(FileQuery.fanOrder(files + [entry("Just arrived.pdf", time: 40)]).last?.name, "Just arrived.pdf")
+    }
+
+    func testFilteredFanKeepsRecentResultAtBottom() {
+        let files = [entry("Notes old.pdf", time: 10), entry("Notes new.pdf", time: 30),
+                     entry("Notes.png", kind: .images, time: 40), entry("Other.pdf", time: 50)]
+        XCTAssertEqual(FileQuery.fanOrder(files, search: "notes", kind: .documents).map(\.name), ["Notes old.pdf", "Notes new.pdf"])
+        XCTAssertEqual(FileQuery.fanOrder(files, search: "new").map(\.name), ["Notes new.pdf"])
+        XCTAssertEqual(FileQuery.fanOrder(files, search: "missing"), [])
+    }
+
     func testWheelMotionIsContinuousAndIndependentOfRefreshRate() {
         var sixty = WheelMotion(), oneTwenty = WheelMotion()
         sixty.push(96, maximum: 1000)

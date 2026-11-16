@@ -69,16 +69,22 @@ public enum FileSort: String, CaseIterable, Identifiable, Sendable {
     public var id: String { rawValue }
     public var title: String {
         switch self {
-        case .newest: return "Newest first"
-        case .oldest: return "Oldest first"
-        case .name: return "Name"
-        case .size: return "Largest first"
+        case .newest: return "Newest near Dock"
+        case .oldest: return "Oldest near Dock"
+        case .name: return "Name (A–Z from Dock)"
+        case .size: return "Largest near Dock"
         case .kind: return "Kind"
         }
     }
 }
 
 public enum FileQuery {
+    /// A fan starts at the Dock and unfolds upward. The highest-priority item
+    /// is therefore last in the document's top-to-bottom visual order.
+    public static func fanOrder(_ entries: [FileEntry], search: String = "", kind: FileKind? = nil, sort: FileSort = .newest) -> [FileEntry] {
+        Array(apply(entries, search: search, kind: kind, sort: sort).reversed())
+    }
+
     public static func apply(_ entries: [FileEntry], search: String = "", kind: FileKind? = nil, sort: FileSort = .newest) -> [FileEntry] {
         let terms = search.split(whereSeparator: \.isWhitespace).map(String.init)
         return entries.filter { entry in

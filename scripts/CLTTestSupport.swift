@@ -25,8 +25,10 @@ enum CLTTestRunner {
         try tests.testFolderScanIncludesEveryVisibleItemWithoutRecursing()
         tests.testMissingFolderPropagatesAnError()
         tests.testDockUsesNewestCompletedFileIndependentOfDisplayOrder()
+        tests.testFanUnfoldsFromNewestAtBottomTowardOlderFiles()
+        tests.testFilteredFanKeepsRecentResultAtBottom()
         tests.testWheelMotionIsContinuousAndIndependentOfRefreshRate()
         tests.testWheelReversalAndBoundsDoNotLeaveQueuedDrift()
-        print("PASS: 8 core scenarios (file queries, scan, Dock file selection, wheel continuity, refresh rates, reversal and bounds)")
+        print("PASS: 10 core scenarios (file queries, scan, bottom-first fan order, Dock file selection, wheel motion and bounds)")
     }
 }

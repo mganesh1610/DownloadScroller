@@ -17,10 +17,11 @@ final class LibraryModel: ObservableObject {
     @Published var selectedID: String?
     @Published var searchFocusRequest = 0
     @Published var selectionScrollRequest = 0
+    @Published var fanOpenRequest = 0
     @Published var pinned = false
     @Published var sort: FileSort {
         didSet {
-            UserDefaults.standard.set(sort.rawValue, forKey: "fileSort")
+            UserDefaults.standard.set(sort.rawValue, forKey: "fanSortFromDock")
             updateQuery()
         }
     }
@@ -37,7 +38,9 @@ final class LibraryModel: ObservableObject {
 
     init() {
         let defaults = UserDefaults.standard
-        sort = FileSort(rawValue: defaults.string(forKey: "fileSort") ?? "") ?? .newest
+        // The former top-down preference belongs to the old layout. Start the
+        // Dock-oriented fan with recent files at its base, then remember choices.
+        sort = FileSort(rawValue: defaults.string(forKey: "fanSortFromDock") ?? "") ?? .newest
     }
 
     var selectedEntry: FileEntry? { visibleEntries.first { $0.id == selectedID } }
@@ -161,8 +164,13 @@ final class LibraryModel: ObservableObject {
 
     private func updateQuery() {
         guard !switchingFolder else { return }
-        visibleEntries = FileQuery.apply(entries, search: search, kind: filter, sort: sort)
-        if !visibleEntries.contains(where: { $0.id == selectedID }) { selectedID = visibleEntries.first?.id }
+        visibleEntries = FileQuery.fanOrder(entries, search: search, kind: filter, sort: sort)
+        if !visibleEntries.contains(where: { $0.id == selectedID }) { selectedID = visibleEntries.last?.id }
+    }
+
+    func prepareToShow() {
+        selectedID = visibleEntries.last?.id
+        fanOpenRequest += 1
     }
 
     func moveSelection(_ delta: Int) {

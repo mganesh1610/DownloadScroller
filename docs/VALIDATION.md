@@ -24,11 +24,11 @@ Environment: Apple Silicon Mac, macOS 27.0.1, Apple Swift 6.4.2 Command Line Too
 - Opening a generated text file from the fan launched TextEdit with the expected document contents and dismissed the unpinned fan.
 - The finished app was copied to the local user's Applications folder, its signature reverified, and its onboarding screen opened successfully.
 
-The local `swift test` command cannot run because Apple's Command Line Tools installation does not contain XCTest. `scripts/test-core.sh` provides a small assertion adapter and now executes the same eight test methods. CI uses full Xcode and runs real XCTest plus the native universal application build.
+The local `swift test` command cannot run because Apple's Command Line Tools installation does not contain XCTest. `scripts/test-core.sh` provides a small assertion adapter and now executes the same ten test methods. CI uses full Xcode and runs real XCTest plus the native universal application build.
 
 ## CI verification
 
-The initial native version passed all five XCTest cases and the arm64 + x86_64 Xcode release build on a GitHub-hosted macOS 15 runner with Xcode 16.4 / Swift 6.1.2. The same workflow runs for subsequent revisions. Check the [latest workflow result](https://github.com/mganesh1610/DownloadScroller/actions/workflows/ci.yml) for the current commit.
+The initial native version passed all five XCTest cases and the arm64 + x86_64 Xcode release build on a GitHub-hosted macOS 15 runner with Xcode 16.4 / Swift 6.1.2. The workflow now runs all ten cases and universal builds with both Xcode 16.4 and 26.3. This covers compilation of the native-material fallback and the Liquid Glass path; the macOS 15 runner does not exercise Liquid Glass at runtime. Check the [latest workflow result](https://github.com/mganesh1610/DownloadScroller/actions/workflows/ci.yml) for the current commit.
 
 ## Known preview-provider behavior
 
@@ -38,7 +38,7 @@ Text and PNG Quick Look were verified. SVG and CSV preview attempts on this Mac 
 
 The fan now defines one rectangular scroll surface behind the floating files, including empty space. Its background retains a single alpha step so macOS can route input over otherwise fully transparent pixels. File buttons cover their labels and icons; clicking blank space does not open a file.
 
-The fan uses an AppKit `NSScrollView` with a fixed-height document and only the visible file layers. There is no lazy-row size estimation. Curve transforms update with implicit layer animation disabled. Regular mouse-wheel notches are interpolated on the display refresh clock; precise events and their momentum stay with AppKit. Reduce Motion uses direct AppKit scrolling and an unrotated arrangement.
+The fan uses an AppKit `NSScrollView` with a fixed-height document and only the visible file rows. There is no lazy-row size estimation. Curve transforms update with implicit layer animation disabled. Regular mouse-wheel notches are interpolated on the display refresh clock; precise events and their momentum stay with AppKit. Reduce Motion uses direct AppKit scrolling and an unrotated arrangement. The system-appearance update below replaces the earlier custom row layers with native material, text, and image views.
 
 Eight core scenarios passed locally. The added cases verify newest completed-file selection (excluding folders and known partial extensions), gradual wheel travel, matching displacement at 60/120 Hz, direction reversal, bounded queued travel, and clamping at both ends. These are deterministic motion tests, not measured frame-rate or physical-device benchmarks.
 
@@ -59,15 +59,37 @@ The dynamic icon is driven by all scanned entries, independently of visible resu
 
 The fan now observes mouse-down events delivered to other apps while it is open, covering system menu-bar popovers that leave DownloadScroller active. It also closes when another window takes focus or the app deactivates. The mouse monitor is removed on dismissal, app hiding, window closure, and termination. **Keep window open** still opts out; the folder picker and the app's own Quick Look panel remain part of the current session.
 
-The rebuilt sandboxed app passed signature verification and all eight existing core scenarios. Native UI checks confirmed that the fan's own menu, keyboard Quick Look, and folder-picker cancellation remain usable after installing the monitor. The automation cannot directly open Control Center, and interactions aimed at a background app do not reproduce a physical system-menu click. The exact Control Center dismissal path therefore needs a manual click check; it is not claimed as visually verified here.
+The rebuilt sandboxed app passed signature verification and all eight then-existing core scenarios. Native UI checks confirmed that the fan's own menu, keyboard Quick Look, and folder-picker cancellation remain usable after installing the monitor. The automation cannot directly open Control Center, and interactions aimed at a background app do not reproduce a physical system-menu click. The user subsequently performed that manual check and confirmed that opening Control Center closes the fan. This is user-confirmed behavior, not an automated system-menu test.
 
-The recent-file icon is now composited with a mint **DS** badge, including the immediate fallback icon and the completed Quick Look thumbnail. The renderer was inspected at 280, 128, 64, 48, and 32 pixels using a generic PDF icon. [Badge rendering preview](images/dock-badge.png) contains no personal file data. Direct Dock-surface verification remains subject to the automation limitation noted above.
+This revision originally introduced a mint **DS** badge. The redesign below replaces those letters with the app's own logo in both the fallback icon and completed Quick Look thumbnail. Direct Dock-surface verification remains subject to the automation limitation noted above.
+
+## Newest-at-bottom fan and system appearance
+
+The fan now opens with the newest entry at the bottom and older entries above. It returns to this end when reopened. File icons are 44 points rather than 64, with a fixed 58-point row stride. Filtering and alternate sort orders also put their highest-priority result nearest the Dock. The sort menu labels describe this orientation.
+
+Ten core scenarios passed locally. New assertions cover bottom-first fan ordering, alternate sorts, a new arrival, filtered recent results, a single result, and no results. Existing newest-file and wheel-motion tests still pass.
+
+The rebuilt sandboxed app passed signature verification and was installed locally. Checks using generated sample files confirmed:
+
+- The latest sample file appears at the bottom on launch. Scrolling through the gaps and along the right edge reaches all 240 files, and reopening returns to the newest end.
+- Bottom search leaves the window height stable and keeps one matching result near the controls. Command-Y previews the matching PNG.
+- Clicking blank space does not open a file. Clicking a rotated filename opens the intended text document.
+- A new generated test file appears at the bottom automatically while viewing that end of the fan. The test file was removed afterward.
+- The updated welcome screen and fan render in light appearance; the fan also renders in dark appearance and a combined increased-contrast/reduced-transparency preview.
+- Opaque, legible surfaces replace translucent materials in the accessibility preview.
+- Quitting the preview and relaunching normally restores the user's saved folder and inherits the system appearance. No macOS appearance settings were changed.
+
+Appearance checks use process-only launch arguments, not live changes to the user's global settings. Live OS appearance/accent/accessibility transitions remain a manual release check. Native semantic colors and effective-appearance/display-option observers are used in the implementation. Floating controls use SwiftUI Liquid Glass on macOS 26 or later when compiled with a supporting SDK; older systems/builds use AppKit native materials. Filename capsules use AppKit popover material. See Apple's [adopting Liquid Glass guidance](https://developer.apple.com/documentation/technologyoverviews/adopting-liquid-glass).
+
+The new original logo shares vector artwork across the bundled icon, welcome screen, and Dock badge. Light/dark logo and recent-file composites were inspected at multiple sizes using a generic PDF icon. The [logo/badge rendering preview](images/dock-badge.png), [light fan](images/fan-light.png), [dark fan](images/fan-dark.png), and [accessibility preview](images/fan-high-contrast.png) contain generated samples or generic icons only. The bundle still uses traditional app icon assets, not Icon Composer clear/tinted variants.
+
+These checks do not measure physical mouse-wheel smoothness or frame rate. Large-directory performance, live appearance transitions, and complete accessibility coverage remain release work.
 
 ## Release checklist still required
 
 - Signed Xcode archive validation, provisioning, TestFlight, and App Review.
 - Real runtime tests on macOS 14 and Intel hardware; a universal compile is not a runtime test.
-- VoiceOver, keyboard-only onboarding, Reduce Motion and Increase Contrast.
+- VoiceOver, keyboard-only onboarding, Reduce Motion, and live system appearance/accent/transparency/contrast changes beyond the app-only previews above.
 - Multiple monitors, display resizing, full-screen Spaces, and all Dock positions.
 - Very large directories and rapid changes while switching folders.
 - Folder moves, deletion, expired/revoked bookmarks, network/cloud provider disconnects, and sleep/wake.
