@@ -15,8 +15,8 @@ This is a standalone app. It does not modify Apple's Downloads stack or replace 
 ## Features
 
 - Continuous scrolling through all visible items, with smooth interpolation for regular mouse wheels and native trackpad momentum.
-- A dedicated curved fan that opens at its newest end, with compact icons and high-resolution Quick Look thumbnails.
-- Native macOS materials, semantic colors, and controls that follow light/dark appearance, accent color, and accessibility preferences. Builds made with Xcode 26 or later use Liquid Glass for floating controls on macOS 26 or later; older builds and systems use native vibrancy.
+- A dedicated curved fan that opens at its newest end, with compact system-decorated file icons, rounded filename capsules, and softly fading scroll edges.
+- Native macOS materials, semantic colors, and controls that follow light/dark appearance, accent color, and accessibility preferences. Builds made with Xcode 26 or later use Liquid Glass for filename capsules and floating controls on macOS 26 or later; older builds and systems use native vibrancy. Reduce Transparency and Increase Contrast switch to opaque surfaces.
 - A running Dock icon that shows the newest completed file with the app's own logo as its badge, regardless of search, filter, or sort order. The logo has light and dark runtime appearances.
 - Search by filename, including multiple words and case-insensitive matches.
 - File-type filters and newest, oldest, name, size, or kind sorting.
@@ -74,7 +74,7 @@ The ten core scenarios cover search, sorting, classification, a 240-file scan, h
 
 `Sources/DownloadScrollerCore` contains immutable file metadata, classification, queries, and enumeration. `Sources/DownloadScroller` owns the sandbox bookmark, folder watcher, an AppKit fan with native material/text/image views, SwiftUI controls, floating panel, dynamic Dock icon, status item, and Quick Look controller. Fixed row geometry and visible-row reuse keep layout work bounded while scrolling. The icon generator, welcome screen, and Dock badge share the original vector artwork in `AppLogo.swift`. No user-selected file is modified or deleted by the app. Opening a file delegates to the user's chosen application.
 
-For contributor screenshots, quit the app and launch it with `--sample-files --preview-appearance light` (or `dark`, `contrast-light`, `contrast-dark`). Add `--preview-reduce-transparency` to preview opaque surfaces, or use `--preview-onboarding` to show the welcome screen. These process-only options leave macOS settings and the saved folder bookmark intact. Quit and relaunch without arguments to resume the normal system appearance and saved folder. See the [light](docs/images/fan-light.png), [dark](docs/images/fan-dark.png), and [contrast](docs/images/fan-high-contrast.png) sample captures and the [logo/badge preview](docs/images/dock-badge.png).
+For contributor screenshots, quit the app and launch it with `--sample-files --preview-appearance light` (or `dark`, `contrast-light`, `contrast-dark`). Add `--preview-reduce-transparency` or `--preview-increase-contrast` to check each opaque fallback separately, or use `--preview-onboarding` to show the welcome screen. `--preview-controls` adds a temporary **Preview Appearance** menu for switching between Light, Dark, and Follow System while the fan is open. These process-only options leave macOS settings and the saved folder bookmark intact. Quit and relaunch without arguments to resume the normal system appearance and saved folder. See the [light](docs/images/fan-light.png), [dark](docs/images/fan-dark.png), [contrast](docs/images/fan-high-contrast.png), and [reduced-transparency](docs/images/fan-reduced-transparency.png) sample captures and the [logo/badge preview](docs/images/dock-badge.png).
 
 ## Current limits
 

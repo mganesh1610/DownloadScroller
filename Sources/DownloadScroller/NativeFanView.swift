@@ -37,6 +37,7 @@ final class FanScrollView: NSScrollView {
     private var query = ""
     private var selectionRequest = 0
     private var clipObserver: NSObjectProtocol?
+    private let edgeFade = CAGradientLayer()
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -46,6 +47,12 @@ final class FanScrollView: NSScrollView {
         horizontalScrollElasticity = .none
         verticalScrollElasticity = .none
         usesPredominantAxisScrolling = true
+        wantsLayer = true
+        // Fade cropped rows into the desktop instead of ending at a hard line.
+        edgeFade.colors = [NSColor.clear.cgColor, NSColor.black.cgColor, NSColor.black.cgColor, NSColor.clear.cgColor]
+        edgeFade.startPoint = CGPoint(x: 0.5, y: 0)
+        edgeFade.endPoint = CGPoint(x: 0.5, y: 1)
+        layer?.mask = edgeFade
         documentView = canvas
         contentView.postsBoundsChangedNotifications = true
         clipObserver = NotificationCenter.default.addObserver(forName: NSView.boundsDidChangeNotification,
@@ -59,12 +66,19 @@ final class FanScrollView: NSScrollView {
 
     override func layout() {
         super.layout()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        edgeFade.frame = bounds
+        let fade = min(0.2, 18 / max(1, bounds.height))
+        edgeFade.locations = [0, NSNumber(value: Double(fade)), NSNumber(value: Double(1 - fade)), 1]
+        CATransaction.commit()
         canvas.resize(to: contentView.bounds.size)
     }
 
     func configure(entries: [FileEntry], selected: String?, query: String, selectionRequest: Int) {
         let reset = self.query != query
         self.query = query
+        if reset { canvas.resetHighlight() }
         if reset || canvas.entries != entries { stopMotion() }
         canvas.replace(entries: entries, reset: reset)
         canvas.resize(to: contentView.bounds.size)
@@ -72,6 +86,7 @@ final class FanScrollView: NSScrollView {
         if self.selectionRequest != selectionRequest {
             stopMotion()
             self.selectionRequest = selectionRequest
+            canvas.showsKeyboardSelection = true
             canvas.revealSelection()
         }
         canvas.updateVisibleRows()
@@ -118,6 +133,7 @@ final class FanScrollView: NSScrollView {
 final class FanCanvas: NSView {
     private(set) var entries: [FileEntry] = []
     var selectedID: String?
+    var showsKeyboardSelection = false
     var reduceMotion = false
     var open: ((FileEntry) -> Void)?
     var preview: ((FileEntry) -> Void)?
@@ -226,7 +242,7 @@ final class FanCanvas: NSView {
             let angle = reduceMotion ? 0 : 16 * pow(1 - progress, 1.15) * .pi / 180
             let edge = viewport.width - 46 + 34 * (1 - pow(progress, 1.7))
             row.arrange(right: edge, center: center, angle: angle, maxWidth: max(120, viewport.width - 88),
-                        scale: window?.backingScaleFactor ?? 2, highlighted: hoveredID == entry.id, selected: selectedID == entry.id)
+                        highlighted: hoveredID == entry.id, selected: showsKeyboardSelection && selectedID == entry.id)
         }
         CATransaction.commit()
         let ids = (start..<end).map { entries[$0].id }
@@ -260,9 +276,14 @@ final class FanCanvas: NSView {
         let point = convert(event.locationInWindow, from: nil)
         return rows.values.first { $0.contains(pointInCanvas: point) }
     }
+    func resetHighlight() { hoveredID = nil; showsKeyboardSelection = false }
     override func mouseMoved(with event: NSEvent) {
         let id = row(at: event)?.entry.id
-        if id != hoveredID { hoveredID = id; updateVisibleRows() }
+        if id != hoveredID || showsKeyboardSelection {
+            hoveredID = id
+            showsKeyboardSelection = false
+            updateVisibleRows()
+        }
     }
     override func mouseExited(with event: NSEvent) { hoveredID = nil; updateVisibleRows() }
     override func mouseDown(with event: NSEvent) {
@@ -304,8 +325,7 @@ private final class FanFileAccessibility: NSAccessibilityElement {
 private final class FanRowView: NSView {
     let entry: FileEntry
     let accessibility = FanFileAccessibility()
-    private let capsule = SystemMaterialView(radius: 12)
-    private let selectionFill = NSView()
+    private let capsule = FanLabelSurface()
     private let label: NSTextField
     private let icon = NSImageView()
     private var thumbnailTask: Task<Void, Never>?
@@ -320,6 +340,7 @@ private final class FanRowView: NSView {
         label = NSTextField(labelWithString: entry.name)
         super.init(frame: .zero)
         wantsLayer = true
+        layer?.allowsEdgeAntialiasing = true
         setAccessibilityElement(false)
         label.font = .systemFont(ofSize: 12.5)
         label.lineBreakMode = .byTruncatingMiddle
@@ -328,17 +349,13 @@ private final class FanRowView: NSView {
         label.alignment = .center
         label.setAccessibilityElement(false)
         naturalWidth = ceil(label.fittingSize.width) + 24
-        selectionFill.wantsLayer = true
-        selectionFill.setAccessibilityElement(false)
-        capsule.addSubview(selectionFill)
-        capsule.addSubview(label)
+        capsule.content.addSubview(label)
         addSubview(capsule)
         icon.imageScaling = .scaleProportionallyUpOrDown
         icon.wantsLayer = true
-        icon.layer?.shadowColor = NSColor.black.cgColor
-        icon.layer?.shadowOpacity = 0.28
-        icon.layer?.shadowRadius = 2
-        icon.layer?.shadowOffset = CGSize(width: 0, height: 1)
+        icon.layer?.allowsEdgeAntialiasing = true
+        icon.layer?.minificationFilter = .trilinear
+        icon.layer?.magnificationFilter = .linear
         icon.setAccessibilityElement(false)
         addSubview(icon)
         accessibility.canvas = parent
@@ -369,27 +386,25 @@ private final class FanRowView: NSView {
     override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); updateColors() }
 
     private func updateColors() {
-        effectiveAppearance.performAsCurrentDrawingAppearance {
-            selectionFill.layer?.backgroundColor = NSColor.selectedContentBackgroundColor.cgColor
-        }
-        selectionFill.isHidden = !highlighted
+        capsule.highlighted = highlighted
         label.textColor = highlighted ? .selectedMenuItemTextColor : .labelColor
     }
 
-    func arrange(right: CGFloat, center: CGFloat, angle: CGFloat, maxWidth: CGFloat, scale: CGFloat, highlighted: Bool, selected: Bool) {
+    func arrange(right: CGFloat, center: CGFloat, angle: CGFloat, maxWidth: CGFloat, highlighted: Bool, selected: Bool) {
         labelWidth = min(naturalWidth, maxWidth - 54)
         // Use AppKit's view transform so native text and backdrop geometry stay
         // in sync. Directly transforming an AppKit-managed layer loses geometry
         // when the view lays out its material and text subviews.
-        frameRotation = 0
-        setFrameSize(NSSize(width: labelWidth + 54, height: 48))
-        setBoundsSize(NSSize(width: labelWidth + 54, height: 48))
-        setFrameOrigin(.zero)
+        let size = NSSize(width: labelWidth + 54, height: 48)
+        if bounds.size != size {
+            frameRotation = 0
+            setFrameSize(size)
+            setBoundsSize(size)
+        }
         frameRotation = angle * 180 / .pi
         let anchor = convert(NSPoint(x: bounds.width, y: 24), to: superview)
-        setFrameOrigin(NSPoint(x: right - anchor.x, y: center - anchor.y))
+        setFrameOrigin(NSPoint(x: frame.origin.x + right - anchor.x, y: frame.origin.y + center - anchor.y))
         capsule.frame = CGRect(x: 0, y: 12, width: labelWidth, height: 24)
-        selectionFill.frame = capsule.bounds
         label.frame = CGRect(x: 11, y: 3, width: labelWidth - 22, height: 18)
         icon.frame = CGRect(x: labelWidth + 10, y: 2, width: 44, height: 44)
         if self.highlighted != (highlighted || selected) {

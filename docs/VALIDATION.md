@@ -79,11 +79,29 @@ The rebuilt sandboxed app passed signature verification and was installed locall
 - Opaque, legible surfaces replace translucent materials in the accessibility preview.
 - Quitting the preview and relaunching normally restores the user's saved folder and inherits the system appearance. No macOS appearance settings were changed.
 
-Appearance checks use process-only launch arguments, not live changes to the user's global settings. Live OS appearance/accent/accessibility transitions remain a manual release check. Native semantic colors and effective-appearance/display-option observers are used in the implementation. Floating controls use SwiftUI Liquid Glass on macOS 26 or later when compiled with a supporting SDK; older systems/builds use AppKit native materials. Filename capsules use AppKit popover material. See Apple's [adopting Liquid Glass guidance](https://developer.apple.com/documentation/technologyoverviews/adopting-liquid-glass).
+Appearance checks use process-only launch arguments, not changes to the user's global settings. Native semantic colors and effective-appearance/display-option observers are used in the implementation. Floating controls use SwiftUI Liquid Glass on macOS 26 or later when compiled with a supporting SDK; older systems/builds use AppKit native materials. This revision originally used AppKit popover material for filename capsules; the translucency update below replaces it with native glass. See Apple's [adopting Liquid Glass guidance](https://developer.apple.com/documentation/technologyoverviews/adopting-liquid-glass).
 
 The new original logo shares vector artwork across the bundled icon, welcome screen, and Dock badge. Light/dark logo and recent-file composites were inspected at multiple sizes using a generic PDF icon. The [logo/badge rendering preview](images/dock-badge.png), [light fan](images/fan-light.png), [dark fan](images/fan-dark.png), and [accessibility preview](images/fan-high-contrast.png) contain generated samples or generic icons only. The bundle still uses traditional app icon assets, not Icon Composer clear/tinted variants.
 
 These checks do not measure physical mouse-wheel smoothness or frame rate. Large-directory performance, live appearance transitions, and complete accessibility coverage remain release work.
+
+## Dock-style translucency and file icons — November 16, 2026
+
+Comparison used the user's captures of Apple's Downloads fan and DownloadScroller over the same background. The automation could not access the system Dock surface directly. The previous filename material looked flat and opaque, while Quick Look was supplying undecorated page thumbnails.
+
+Filename capsules now use AppKit `NSGlassEffectView` with its regular legibility treatment, rounded corners, and native appearance adaptation. The item-count chip uses the same glass family as the floating controls. Older systems/builds use a lighter native menu material; text remains fully opaque. Reduce Transparency or Increase Contrast uses opaque system-color surfaces. Layer edge antialiasing and a short fade at the scroll boundaries soften rotated edges and cropped rows. Row geometry is reused during scrolling instead of resetting each row's frame size every frame.
+
+Thumbnail requests now enable [Quick Look's icon mode](https://developer.apple.com/documentation/quicklookthumbnailing/qlthumbnailgenerator/request/iconmode), which asks the system for file-icon decorations. Document frames and shadows come from the installed macOS provider; the app no longer adds a second shadow. The fan remains at 44-point icons. Opening the fan leaves its labels neutral until a file is hovered or selected with the keyboard.
+
+The sandboxed release app was rebuilt, its signature verified, and the installed copy checked with generated samples:
+
+- Light → Dark → Follow System transitions updated the existing fan without restarting. Native appearance transitions were allowed to settle before comparing captures.
+- Increase Contrast in dark appearance and Reduce Transparency in light appearance were checked separately; both produced opaque, legible capsules and controls.
+- Scrolling through empty space and along the right edge reached the oldest of 240 files. Reopening returned to the newest end. Arrow-key selection showed the native accent highlight.
+- Bottom search, PNG Quick Look, and clicking a rotated text-file label all worked. The expected sample text opened in TextEdit and the fan dismissed.
+- The final normal launch restored the saved folder, inherited the current system appearance, and contained no contributor preview menu. Global macOS settings were not changed.
+
+Contributor contrast previews explicitly request the fallback as well as selecting an appearance name: named high-contrast appearances can resolve to their base appearance when the global setting is off. Live changes to global accessibility/accent/glass preferences, physical-device frame-rate measurements, and runtime checks on older macOS remain release tasks. The app uses [public native glass APIs](https://developer.apple.com/documentation/appkit/nsglasseffectview); it does not reproduce private Dock rendering or promise identical rendering on every OS release.
 
 ## Release checklist still required
 

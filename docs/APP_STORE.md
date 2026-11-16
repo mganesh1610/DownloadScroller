@@ -8,7 +8,8 @@ DownloadScroller 0.1.0 is an early preview. The source and native project are pr
 - App Sandbox with user-selected **read-only** access and app-scoped bookmarks.
 - Public AppKit, SwiftUI, Foundation, Quick Look, and Uniform Type Identifiers APIs.
 - Original app logo at all required traditional macOS icon sizes, also used as the recent-file Dock badge.
-- System appearance and accessibility-aware controls, with native Liquid Glass on macOS 26 or later when built with Xcode 26 or later, and native material fallback on older supported systems.
+- System appearance and accessibility-aware filename capsules and controls, with native Liquid Glass on macOS 26 or later when built with Xcode 26 or later, and native material fallback on older supported systems.
+- Quick Look's native file-icon decorations, including provider-supplied document framing and shadows.
 - Privacy manifest declaring no tracking or collection, plus required reasons for preferences and file metadata.
 - MIT source license, public privacy policy, support channel, and draft store listing below.
 

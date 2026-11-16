@@ -256,6 +256,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func revealSelected() { model.reveal() }
     @objc private func closeShelf() { controller.dismiss() }
 
+    // Contributor-only previews change this app's appearance while it is open.
+    // They never write macOS preferences or appear in the normal app menu.
+    @objc private func previewAppearance(_ sender: NSMenuItem) {
+        let name = sender.representedObject as? String
+        NSApp.appearance = name.flatMap { NSAppearance(named: NSAppearance.Name($0)) }
+    }
+
     private func buildMenu() {
         let main = NSMenu()
         let application = NSMenu(title: "DownloadScroller")
@@ -287,6 +294,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         item("Find a File", action: #selector(find), key: "f", in: edit)
         let editItem = NSMenuItem(); editItem.submenu = edit; main.addItem(editItem)
+        if ProcessInfo.processInfo.arguments.contains("--preview-controls") {
+            let preview = NSMenu(title: "Preview Appearance")
+            let appearances: [(String, NSAppearance.Name?)] = [
+                ("Follow System", nil), ("Light", .aqua), ("Dark", .darkAqua)
+            ]
+            for (title, appearance) in appearances {
+                let item = NSMenuItem(title: title, action: #selector(previewAppearance(_:)), keyEquivalent: "")
+                item.target = self
+                item.representedObject = appearance?.rawValue
+                preview.addItem(item)
+            }
+            let previewItem = NSMenuItem(); previewItem.submenu = preview; main.addItem(previewItem)
+        }
         NSApp.mainMenu = main
     }
 

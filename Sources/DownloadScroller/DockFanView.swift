@@ -75,7 +75,7 @@ struct DockFanView: View {
         VStack(alignment: .trailing, spacing: 9) {
             Text("\(model.visibleEntries.count) \(model.visibleEntries.count == 1 ? "item" : "items")\(model.visibleEntries.count > 10 ? (model.sort == .newest ? " · Scroll up for older files" : " · Scroll up to browse") : "")")
                 .font(.system(size: 11)).padding(.horizontal, 11).padding(.vertical, 5)
-                .background(NativeMaterial(radius: 12))
+                .systemControlSurface(radius: 12)
                 .padding(.trailing, 17)
             HStack(spacing: 13) {
                 Menu {

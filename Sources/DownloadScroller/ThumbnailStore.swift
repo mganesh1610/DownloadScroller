@@ -37,6 +37,9 @@ final class ThumbnailStore {
         let task = Task { @MainActor in
             let request = QLThumbnailGenerator.Request(fileAt: entry.url, size: CGSize(width: 128, height: 128),
                                                        scale: 2, representationTypes: .all)
+            // Ask Quick Look for the system's file-icon treatment, including
+            // document framing, rounded edges, and shadows, rather than a raw page.
+            request.iconMode = true
             do { return try await QLThumbnailGenerator.shared.generateBestRepresentation(for: request).nsImage }
             catch { return fallback }
         }
