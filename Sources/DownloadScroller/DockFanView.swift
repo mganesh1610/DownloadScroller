@@ -8,13 +8,17 @@ import DownloadScrollerCore
 /// language of the system Dock fan while remaining an independent app window.
 struct DockFanView: View {
     @ObservedObject var model: LibraryModel
-    @ViewState private var searching = false
     @FocusState private var searchFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private var alignment: HorizontalAlignment { model.fanIconSide == .left ? .leading : .trailing }
+    private var baseEdge: Edge.Set { model.fanIconSide == .left ? .leading : .trailing }
 
     var body: some View {
-        VStack(alignment: .trailing, spacing: 0) {
+        GeometryReader { geometry in fan(width: geometry.size.width) }
+    }
 
+    private func fan(width: CGFloat) -> some View {
+        VStack(alignment: alignment, spacing: 0) {
             if let message = model.errorMessage {
                 HStack {
                     Image(systemName: "exclamationmark.circle")
@@ -27,11 +31,11 @@ struct DockFanView: View {
 
             if model.loading && model.entries.isEmpty {
                 Spacer()
-                ProgressView().padding(20).systemControlSurface().padding(.trailing, 40)
+                ProgressView().padding(20).systemControlSurface().padding(baseEdge, 40)
                 Spacer()
             } else if model.visibleEntries.isEmpty {
                 Spacer()
-                VStack(alignment: .trailing, spacing: 10) {
+                VStack(alignment: alignment, spacing: 10) {
                     Text(model.entries.isEmpty ? "This folder is empty" : "No matching files")
                         .font(.system(size: 14, weight: .medium))
                     if !model.entries.isEmpty {
@@ -39,7 +43,7 @@ struct DockFanView: View {
                     }
                 }
                 .padding(20).systemControlSurface(radius: 16)
-                .padding(.trailing, 26)
+                .padding(baseEdge, 26)
                 Spacer()
             } else {
                 NativeFanView(model: model, reduceMotion: reduceMotion)
@@ -48,43 +52,51 @@ struct DockFanView: View {
                     .background(Color.black.opacity(1.0 / 255))
             }
 
-            if searching || !model.search.isEmpty {
+            if model.isSearchPresented || !model.search.isEmpty {
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
                     TextField("Find a file…", text: $model.search).textFieldStyle(.plain)
                         .focused($searchFocused).accessibilityLabel("Search files")
                         .onSubmit { searchFocused = false; model.open() }
-                    Button { model.search = ""; searching = false; searchFocused = false } label: { Image(systemName: "xmark.circle.fill") }
+                    Button { model.search = ""; model.isSearchPresented = false; searchFocused = false } label: { Image(systemName: "xmark.circle.fill") }
                         .buttonStyle(.borderless).accessibilityLabel("Close search")
                 }
                 .font(.system(size: 13)).padding(.horizontal, 14).padding(.vertical, 11)
                 .systemControlSurface()
-                .frame(width: 330).padding(.trailing, 27).padding(.bottom, 10)
+                .frame(maxWidth: 330).padding(baseEdge, 27).padding(.bottom, 10)
             }
 
-            controls.padding(.trailing, 27).padding(.bottom, 9)
+            controls(maximumFolderLabelWidth: max(44, min(230, width - 155)))
+                .padding(baseEdge, 27).padding(.bottom, 9)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: Alignment(horizontal: alignment, vertical: .bottom))
         .foregroundStyle(.primary)
         .background(Color.clear)
-        .onChange(of: model.searchFocusRequest) { _, _ in searching = true; searchFocused = true }
-        .onExitCommand {
-            if !model.search.isEmpty { model.search = "" }
-            else if searching { searching = false; searchFocused = false }
-            else { model.onDismiss?() }
+        .overlay {
+            if model.availableForFanDrop {
+                RoundedRectangle(cornerRadius: 16).strokeBorder(Color.accentColor.opacity(0.65),
+                    style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+                    .padding(3).allowsHitTesting(false).accessibilityHidden(true)
+            }
         }
+        .onChange(of: model.searchFocusRequest) { _, _ in model.isSearchPresented = true; searchFocused = true }
+        .onChange(of: model.isSearchPresented) { _, presented in searchFocused = presented }
+        .onExitCommand { model.handleEscape() }
     }
 
-    private var controls: some View {
-        VStack(alignment: .trailing, spacing: 9) {
-            Text("\(model.visibleEntries.count) \(model.visibleEntries.count == 1 ? "item" : "items")\(model.visibleEntries.count > 10 ? (model.sort == .newest ? " · Scroll up for older files" : " · Scroll up to browse") : "")")
+    private func controls(maximumFolderLabelWidth: CGFloat) -> some View {
+        VStack(alignment: alignment, spacing: 9) {
+            Text(model.dropHint ?? (model.availableForFanDrop ? "Drop here or on a folder" : nil) ?? model.copyNotice ?? "\(model.visibleEntries.count) \(model.visibleEntries.count == 1 ? "item" : "items")\(model.visibleEntries.count > 10 ? (model.sort == .newest ? " · Scroll up for older files" : " · Scroll up to browse") : "")")
                 .font(.system(size: 11)).padding(.horizontal, 11).padding(.vertical, 5)
                 .systemControlSurface(radius: 12)
-                .padding(.trailing, 17)
+                .overlay { if model.dropHint != nil { Capsule().strokeBorder(Color.accentColor, lineWidth: 2) } }
+                .padding(baseEdge, 17)
             HStack(spacing: 13) {
                 Menu {
                     Button("Open folder in Finder") { model.openFolder() }
-                    Button("Choose folder…") { model.chooseFolder() }
-                    Button("Disconnect folder") { model.disconnect() }
+                    Button(model.launcherID == nil ? "Choose folder…" : "Change this launcher's folder…") { model.chooseFolder() }
+                    if model.launcherID == nil { Button("Disconnect folder") { model.disconnect() } }
+                    Button("Dock & Launchers…") { model.onShowDockSettings?() }
                     Divider()
                     Picker("Sort by", selection: $model.sort) {
                         ForEach(FileSort.allCases) { sort in Text(sort.title).tag(sort) }
@@ -103,9 +115,9 @@ struct DockFanView: View {
                     Label(model.isSample ? "Sample Downloads" : model.folderName, systemImage: "folder.fill")
                         .font(.system(size: 13, weight: .medium)).lineLimit(1).truncationMode(.middle)
                 }
-                .menuStyle(.borderlessButton).fixedSize().frame(maxWidth: 230)
+                .menuStyle(.borderlessButton).frame(maxWidth: maximumFolderLabelWidth)
                 .accessibilityLabel("Folder options")
-                Button { searching.toggle(); searchFocused = searching } label: {
+                Button { model.isSearchPresented.toggle(); searchFocused = model.isSearchPresented } label: {
                     Image(systemName: "magnifyingglass")
                 }
                 .buttonStyle(.borderless).help("Search files · ⌘F").accessibilityLabel("Search files")

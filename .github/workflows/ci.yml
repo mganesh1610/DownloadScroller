@@ -20,7 +20,7 @@ jobs:
         run: |
           xcodebuild -version
           swift --version
-      - name: Core tests
+      - name: Core and app-state tests
         run: swift test
       - name: Universal native app build
         run: >-

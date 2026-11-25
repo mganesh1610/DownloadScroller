@@ -82,11 +82,10 @@ final class SystemMaterialView: NSVisualEffectView {
 }
 
 /// Floating file labels use native glass with the system's legibility treatment.
-/// Content belongs in the effect's contentView, never over its layers.
+/// The row draws its own selection behind the text when highlighted.
 final class FanLabelSurface: NSView {
     let content = NSView()
     private let fallback = SystemMaterialView(material: .menu, radius: 12)
-    private let selection = NSView()
     private var glass: NSView?
     private var observers: [NSObjectProtocol] = []
     private var displayObserver: NSObjectProtocol?
@@ -98,11 +97,6 @@ final class FanLabelSurface: NSView {
         layer?.allowsEdgeAntialiasing = true
         content.wantsLayer = true
         content.setAccessibilityElement(false)
-        selection.wantsLayer = true
-        selection.layer?.cornerRadius = 12
-        selection.layer?.cornerCurve = .continuous
-        selection.layer?.allowsEdgeAntialiasing = true
-        selection.setAccessibilityElement(false)
         addSubview(fallback)
         #if compiler(>=6.2)
         if #available(macOS 26.0, *) {
@@ -115,7 +109,6 @@ final class FanLabelSurface: NSView {
         }
         #endif
         if glass == nil { addSubview(content) }
-        content.addSubview(selection)
         setAccessibilityElement(false)
         observers.append(NotificationCenter.default.addObserver(forName: NSColor.systemColorsDidChangeNotification,
                                                                  object: nil, queue: .main) { [weak self] _ in self?.updateStyle() })
@@ -134,18 +127,18 @@ final class FanLabelSurface: NSView {
         fallback.frame = bounds
         glass?.frame = bounds
         content.frame = bounds
-        selection.frame = content.bounds
     }
 
     private func updateStyle() {
         let opaque = SystemAppearance.reduceTransparency || SystemAppearance.increaseContrast(effectiveAppearance)
+        let usesGlass = glass != nil && !opaque && !highlighted
         // Keep text opaque in every mode. Only the legacy material is thinned.
         fallback.alphaValue = opaque ? 1 : 0.55
-        fallback.isHidden = glass != nil && !opaque
+        fallback.isHidden = highlighted || usesGlass
         #if compiler(>=6.2)
         if #available(macOS 26.0, *), let effect = glass as? NSGlassEffectView {
-            effect.isHidden = opaque
-            if opaque {
+            effect.isHidden = !usesGlass
+            if !usesGlass {
                 if content.superview !== self { effect.contentView = nil; addSubview(content) }
             } else if effect.contentView !== content {
                 content.removeFromSuperview()
@@ -153,10 +146,6 @@ final class FanLabelSurface: NSView {
             }
         }
         #endif
-        selection.isHidden = !highlighted
-        effectiveAppearance.performAsCurrentDrawingAppearance {
-            selection.layer?.backgroundColor = NSColor.selectedContentBackgroundColor.cgColor
-        }
         needsLayout = true
     }
 }

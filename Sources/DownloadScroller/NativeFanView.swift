@@ -5,6 +5,14 @@ import SwiftUI
 import DownloadScrollerCore
 #endif
 
+struct FanScrollIdentity: Equatable {
+    let folder: URL?
+    let search: String
+    let filter: FileKind?
+    let sort: FileSort
+    let openRequest: Int
+}
+
 struct NativeFanView: NSViewRepresentable {
     @ObservedObject var model: LibraryModel
     var reduceMotion: Bool
@@ -18,10 +26,18 @@ struct NativeFanView: NSViewRepresentable {
         }
         view.canvas.preview = { [weak model] in model?.preview($0) }
         view.canvas.reveal = { [weak model] in model?.reveal($0) }
+        view.canvas.select = { [weak model] in model?.selectedID = $0.id }
+        view.canvas.folderAccess = model.folderAccess
+        view.canvas.dragStateChanged = { [weak model] in model?.isDraggingFile = $0 }
+        view.canvas.dragFinished = { [weak model] operation in
+            if !operation.isEmpty, model?.pinned == false { model?.onDismiss?() }
+        }
+        view.canvas.iconSide = model.fanIconSide
         view.reduceMotion = reduceMotion
         view.configure(entries: model.visibleEntries, selected: model.selectedID,
-                       query: "\(model.folder?.path ?? "")|\(model.search)|\(model.filter?.rawValue ?? "")|\(model.sort.rawValue)|\(model.fanOpenRequest)",
-                       selectionRequest: model.selectionScrollRequest)
+                       identity: FanScrollIdentity(folder: model.folder, search: model.search, filter: model.filter,
+                                                   sort: model.sort, openRequest: model.fanOpenRequest),
+                       selectionRequest: model.selectionScrollRequest, wrapWidth: model.filenameWrapWidth)
     }
     static func dismantleNSView(_ view: FanScrollView, coordinator: ()) { view.stopMotion() }
 }
@@ -34,7 +50,7 @@ final class FanScrollView: NSScrollView {
     private var motion = WheelMotion()
     private var frameLink: CADisplayLink?
     private var lastFrame: CFTimeInterval = 0
-    private var query = ""
+    private var identity: FanScrollIdentity?
     private var selectionRequest = 0
     private var clipObserver: NSObjectProtocol?
     private let edgeFade = CAGradientLayer()
@@ -75,12 +91,12 @@ final class FanScrollView: NSScrollView {
         canvas.resize(to: contentView.bounds.size)
     }
 
-    func configure(entries: [FileEntry], selected: String?, query: String, selectionRequest: Int) {
-        let reset = self.query != query
-        self.query = query
+    func configure(entries: [FileEntry], selected: String?, identity: FanScrollIdentity, selectionRequest: Int, wrapWidth: CGFloat? = nil) {
+        let reset = self.identity != identity
+        self.identity = identity
         if reset { canvas.resetHighlight() }
-        if reset || canvas.entries != entries { stopMotion() }
-        canvas.replace(entries: entries, reset: reset)
+        if reset || canvas.entries != entries || canvas.wrapWidth != wrapWidth { stopMotion() }
+        canvas.replace(entries: entries, reset: reset, wrapWidth: wrapWidth)
         canvas.resize(to: contentView.bounds.size)
         canvas.selectedID = selected
         if self.selectionRequest != selectionRequest {
@@ -130,31 +146,50 @@ final class FanScrollView: NSScrollView {
     }
 }
 
-final class FanCanvas: NSView {
+final class FanCanvas: NSView, NSDraggingSource {
     private(set) var entries: [FileEntry] = []
     var selectedID: String?
-    var showsKeyboardSelection = false
+    var showsKeyboardSelection = false {
+        didSet { if showsKeyboardSelection { hoverPointInWindow = nil } }
+    }
     var reduceMotion = false
+    var iconSide = FanIconSide.right
     var open: ((FileEntry) -> Void)?
     var preview: ((FileEntry) -> Void)?
     var reveal: ((FileEntry) -> Void)?
+    var select: ((FileEntry) -> Void)?
+    var dragStateChanged: ((Bool) -> Void)?
+    var dragFinished: ((NSDragOperation) -> Void)?
+    weak var folderAccess: FolderAccess?
+    private var press: FanFilePress?
+    private var draggingFile = false
+    var acceptedByFan = false
+    var draggedFile: FanFilePress? { draggingFile ? press : nil }
+    private var sourcePanel: ShelfPanel?
+    private var receivingPanels: [ShelfPanel] = []
+    var dropFolderID: String? {
+        didSet { if oldValue != dropFolderID { updateVisibleRows() } }
+    }
     private var rows: [String: FanRowView] = [:]
-    private var hoveredID: String?
+    private var hoverPointInWindow: NSPoint?
     private var tracking: NSTrackingArea?
     private var viewport = NSSize.zero
     private var contextEntry: FileEntry?
     private var accessibleIDs: [String] = []
     private var updating = false
-    private let stride: CGFloat = 58
+    private(set) var wrapWidth: CGFloat?
+    private var wrappedTextHeights: [String: CGFloat] = [:]
+    private var stride = FanMetrics.rowStride
     private var needsBottomPosition = true
     private var topInset: CGFloat {
-        let clearance: CGFloat = reduceMotion ? 20 : min(112, max(20, CGFloat(entries.count - 1) * 14))
+        let clearance = FanMetrics.topClearance(itemCount: entries.count, reduceMotion: reduceMotion)
         return max(clearance, viewport.height - CGFloat(entries.count) * stride - 12)
     }
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { false }
     override var acceptsFirstResponder: Bool { true }
     override var mouseDownCanMoveWindow: Bool { false }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -167,8 +202,13 @@ final class FanCanvas: NSView {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    func replace(entries: [FileEntry], reset: Bool) {
-        guard self.entries != entries || reset else { return }
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        (window as? ShelfPanel)?.canvas = self
+    }
+
+    func replace(entries: [FileEntry], reset: Bool, wrapWidth: CGFloat?) {
+        guard self.entries != entries || self.wrapWidth != wrapWidth || reset else { return }
         let offset = enclosingScrollView?.contentView.bounds.minY ?? 0
         let wasAtBottom = offset >= max(0, bounds.height - viewport.height) - 1
         let anchorIndex = min(max(Int((offset - topInset) / stride), 0), max(self.entries.count - 1, 0))
@@ -176,6 +216,9 @@ final class FanCanvas: NSView {
         let relative = offset - (topInset + CGFloat(anchorIndex) * stride)
         let followBottom = reset || self.entries.isEmpty || wasAtBottom
         self.entries = entries
+        self.wrapWidth = wrapWidth
+        wrappedTextHeights = wrapWidth.map { FanMetrics.wrappedTextHeights(for: entries.lazy.map(\.name), panelWidth: $0) } ?? [:]
+        stride = max(FanMetrics.rowStride, (wrappedTextHeights.values.max() ?? 18) + 24)
         needsBottomPosition = followBottom
         resize(to: enclosingScrollView?.contentView.bounds.size ?? viewport)
         if !followBottom, let clip = enclosingScrollView?.contentView {
@@ -236,14 +279,18 @@ final class FanCanvas: NSView {
                 accessibilityChanged = true
                 addSubview(row)
             }
-            let center = topInset + CGFloat(index) * stride + 24
+            let extraInset = (stride - FanMetrics.rowStride) / 2
+            let center = topInset + CGFloat(index) * stride + 24 + extraInset
             let amount = min(1, CGFloat(max(0, entries.count - 1)) / 8)
-            let progress = 1 - (1 - min(max((center - visible.minY) / max(1, visible.height), 0), 1)) * amount
+            let progress = 1 - (1 - min(max((center - visible.minY) / max(1, visible.height - FanMetrics.bottomRowCenterInset - extraInset), 0), 1)) * amount
             let angle = reduceMotion ? 0 : 16 * pow(1 - progress, 1.15) * .pi / 180
-            let edge = viewport.width - 46 + 34 * (1 - pow(progress, 1.7))
-            row.arrange(right: edge, center: center, angle: angle, maxWidth: max(120, viewport.width - 88),
-                        highlighted: hoveredID == entry.id, selected: showsKeyboardSelection && selectedID == entry.id)
+            let inset = FanMetrics.iconInset - 22 - 34 * (1 - pow(progress, 1.7))
+            let edge = iconSide == .left ? inset : viewport.width - inset
+            row.arrange(edge: edge, center: center, angle: angle, iconSide: iconSide,
+                        maxLabelWidth: FanMetrics.maximumLabelWidth(in: viewport.width), wrappedTextHeight: wrappedTextHeights[entry.name])
         }
+        // A stationary pointer can move onto another file as rows scroll underneath it.
+        updateHighlights(for: hoverPointInWindow.flatMap { row(atWindowPoint: $0) })
         CATransaction.commit()
         let ids = (start..<end).map { entries[$0].id }
         if accessibleIDs != ids || accessibilityChanged {
@@ -256,7 +303,7 @@ final class FanCanvas: NSView {
         guard let id = selectedID, let index = entries.firstIndex(where: { $0.id == id }), let scroll = enclosingScrollView else { return }
         let clip = scroll.contentView
         let top = topInset + CGFloat(index) * stride - (reduceMotion ? 0 : 110)
-        let bottom = topInset + CGFloat(index) * stride + 52
+        let bottom = topInset + CGFloat(index) * stride + stride - 6
         var y = clip.bounds.minY
         if top < y { y = max(0, top) }
         else if bottom > clip.bounds.maxY { y = bottom - clip.bounds.height }
@@ -267,28 +314,115 @@ final class FanCanvas: NSView {
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         if let tracking { removeTrackingArea(tracking) }
-        let tracking = NSTrackingArea(rect: .zero, options: [.activeInKeyWindow, .mouseMoved, .mouseEnteredAndExited, .inVisibleRect], owner: self)
+        let tracking = NSTrackingArea(rect: .zero, options: [.activeAlways, .mouseMoved, .mouseEnteredAndExited, .inVisibleRect], owner: self)
         addTrackingArea(tracking)
         self.tracking = tracking
     }
 
     private func row(at event: NSEvent) -> FanRowView? {
-        let point = convert(event.locationInWindow, from: nil)
+        row(atWindowPoint: event.locationInWindow)
+    }
+    private func row(atWindowPoint location: NSPoint) -> FanRowView? {
+        let point = convert(location, from: nil)
+        guard visibleRect.contains(point) else { return nil }
         return rows.values.first { $0.contains(pointInCanvas: point) }
     }
-    func resetHighlight() { hoveredID = nil; showsKeyboardSelection = false }
-    override func mouseMoved(with event: NSEvent) {
-        let id = row(at: event)?.entry.id
-        if id != hoveredID || showsKeyboardSelection {
-            hoveredID = id
-            showsKeyboardSelection = false
-            updateVisibleRows()
+    func folderRow(atWindowPoint location: NSPoint) -> FileEntry? {
+        guard let entry = row(atWindowPoint: location)?.entry, entry.kind == .folders else { return nil }
+        return entry
+    }
+    private func updateHighlights(for hovered: FanRowView?) {
+        if toolTip != hovered?.entry.name { toolTip = hovered?.entry.name }
+        for row in rows.values {
+            row.updateHighlight(hovered === row || dropFolderID == row.entry.id,
+                                selected: showsKeyboardSelection && selectedID == row.entry.id)
         }
     }
-    override func mouseExited(with event: NSEvent) { hoveredID = nil; updateVisibleRows() }
+
+    func resetHighlight() {
+        hoverPointInWindow = nil
+        showsKeyboardSelection = false
+        toolTip = nil
+    }
+    override func mouseEntered(with event: NSEvent) { mouseMoved(with: event) }
+    override func mouseMoved(with event: NSEvent) {
+        guard !draggingFile else { return }
+        hoverPointInWindow = event.locationInWindow
+        let hovered = row(at: event)
+        guard showsKeyboardSelection || toolTip != hovered?.entry.name else { return }
+        showsKeyboardSelection = false
+        updateHighlights(for: hovered)
+    }
+    override func mouseExited(with event: NSEvent) {
+        hoverPointInWindow = nil
+        updateHighlights(for: nil)
+    }
     override func mouseDown(with event: NSEvent) {
+        (enclosingScrollView as? FanScrollView)?.stopMotion()
+        guard !draggingFile else { return }
+        press = nil
+        guard let entry = row(at: event)?.entry else {
+            ShelfController.dismissUnpinnedFans()
+            return
+        }
+        guard let folderAccess else { return }
         window?.makeFirstResponder(self)
-        if let row = row(at: event) { open?(row.entry) }
+        press = FanFilePress(entry: entry, mouseDown: event, access: folderAccess)
+        select?(entry)
+    }
+    override func mouseUp(with event: NSEvent) {
+        guard !draggingFile else { return }
+        defer { press = nil }
+        guard let press, row(at: event)?.entry.id == press.entry.id else { return }
+        open?(press.entry)
+    }
+    override func mouseDragged(with event: NSEvent) {
+        guard !draggingFile, let press, press.crossedDragThreshold(at: event.locationInWindow) else { return }
+        draggingFile = true
+        hoverPointInWindow = nil
+        updateHighlights(for: nil)
+        acceptedByFan = false
+        dragStateChanged?(true)
+        let store = ThumbnailStore.shared
+        let item = press.draggingItem(in: self, image: store.cached(for: press.entry) ?? store.icon(for: press.entry))
+        let session = beginDraggingSession(with: [item], event: press.mouseDown, source: self)
+        session.animatesToStartingPositionsOnCancelOrFail = true
+    }
+
+    func draggingSession(_ session: NSDraggingSession, willBeginAt screenPoint: NSPoint) {
+        // Uncover Finder under the source. The other fans remain destinations,
+        // including the otherwise transparent space in an empty fan.
+        sourcePanel = window as? ShelfPanel
+        sourcePanel?.yieldsToFileDrag = true
+        receivingPanels = ShelfPanel.visibleFans.filter { $0 !== sourcePanel && ($0.windowController as? ShelfController)?.model.folder != nil }
+        for panel in receivingPanels {
+            panel.backgroundColor = .controlAccentColor.withAlphaComponent(0.05)
+            (panel.windowController as? ShelfController)?.model.availableForFanDrop = true
+        }
+    }
+
+    func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
+        .copy
+    }
+
+    func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
+        sourcePanel?.yieldsToFileDrag = false
+        sourcePanel = nil
+        for panel in receivingPanels {
+            panel.backgroundColor = .clear
+            if let shelf = panel.windowController as? ShelfController {
+                shelf.model.availableForFanDrop = false
+                shelf.dropTarget.clearHover()
+            }
+        }
+        receivingPanels.removeAll()
+        press = nil
+        draggingFile = false
+        dragStateChanged?(false)
+        resetHighlight()
+        updateVisibleRows()
+        if !acceptedByFan { dragFinished?(operation) }
+        acceptedByFan = false
     }
     override func menu(for event: NSEvent) -> NSMenu? {
         guard let row = row(at: event) else { return nil }
@@ -298,6 +432,16 @@ final class FanCanvas: NSView {
             let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
             item.target = self
             menu.addItem(item)
+        }
+        if let access = folderAccess {
+            let destinations = NSMenu()
+            for panel in ShelfPanel.visibleFans where panel !== window {
+                (panel.windowController as? ShelfController)?.dropTarget.appendMenu(to: destinations, file: row.entry.url, access: access)
+            }
+            if destinations.numberOfItems > 0 {
+                menu.addItem(.separator())
+                menu.addItem(withTitle: "Copy to Open Fan", action: nil, keyEquivalent: "").submenu = destinations
+            }
         }
         return menu
     }
@@ -334,21 +478,22 @@ private final class FanRowView: NSView {
     private var naturalWidth: CGFloat = 0
     private var highlighted = false
     override var isFlipped: Bool { true }
+    override func makeBackingLayer() -> CALayer {
+        let shape = CAShapeLayer()
+        shape.fillColor = nil
+        shape.actions = ["fillColor": NSNull()]
+        return shape
+    }
 
     init(entry: FileEntry, parent: FanCanvas) {
         self.entry = entry
-        label = NSTextField(labelWithString: entry.name)
+        label = FanMetrics.filenameLabel(entry.name)
         super.init(frame: .zero)
         wantsLayer = true
         layer?.allowsEdgeAntialiasing = true
         setAccessibilityElement(false)
-        label.font = .systemFont(ofSize: 12.5)
-        label.lineBreakMode = .byTruncatingMiddle
-        label.maximumNumberOfLines = 1
-        label.cell?.usesSingleLineMode = true
-        label.alignment = .center
         label.setAccessibilityElement(false)
-        naturalWidth = ceil(label.fittingSize.width) + 24
+        naturalWidth = ceil(label.fittingSize.width) + FanMetrics.labelPadding
         capsule.content.addSubview(label)
         addSubview(capsule)
         icon.imageScaling = .scaleProportionallyUpOrDown
@@ -365,7 +510,7 @@ private final class FanRowView: NSView {
         accessibility.setAccessibilityEnabled(true)
         accessibility.setAccessibilityLabel(entry.name)
         accessibility.setAccessibilityValue(entry.kind.title)
-        accessibility.setAccessibilityHelp("Open file. Use Space for Quick Look or the context menu to reveal in Finder.")
+        accessibility.setAccessibilityHelp("Click to open, or drag the file into a folder or another app. Use Space for Quick Look or the context menu to reveal in Finder.")
         colorObserver = NotificationCenter.default.addObserver(forName: NSColor.systemColorsDidChangeNotification,
                                                                object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor in self?.updateColors() }
@@ -387,37 +532,60 @@ private final class FanRowView: NSView {
 
     private func updateColors() {
         capsule.highlighted = highlighted
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            (layer as? CAShapeLayer)?.fillColor = highlighted ? NSColor.selectedContentBackgroundColor.cgColor : nil
+        }
         label.textColor = highlighted ? .selectedMenuItemTextColor : .labelColor
     }
 
-    func arrange(right: CGFloat, center: CGFloat, angle: CGFloat, maxWidth: CGFloat, highlighted: Bool, selected: Bool) {
-        labelWidth = min(naturalWidth, maxWidth - 54)
+    func arrange(edge: CGFloat, center: CGFloat, angle: CGFloat, iconSide: FanIconSide,
+                 maxLabelWidth: CGFloat, wrappedTextHeight: CGFloat?) {
+        labelWidth = min(naturalWidth, maxLabelWidth)
+        let textHeight = wrappedTextHeight ?? 18
+        let capsuleHeight = textHeight + 6
+        let wraps = wrappedTextHeight != nil
+        if wraps != (label.maximumNumberOfLines == 0) { FanMetrics.setWrapping(wraps, on: label) }
         // Use AppKit's view transform so native text and backdrop geometry stay
         // in sync. Directly transforming an AppKit-managed layer loses geometry
         // when the view lays out its material and text subviews.
-        let size = NSSize(width: labelWidth + 54, height: 48)
+        let size = NSSize(width: labelWidth + FanMetrics.fileIconAndGap, height: max(48, capsuleHeight + 8))
         if bounds.size != size {
             frameRotation = 0
             setFrameSize(size)
             setBoundsSize(size)
         }
-        frameRotation = angle * 180 / .pi
-        let anchor = convert(NSPoint(x: bounds.width, y: 24), to: superview)
-        setFrameOrigin(NSPoint(x: frame.origin.x + right - anchor.x, y: frame.origin.y + center - anchor.y))
-        capsule.frame = CGRect(x: 0, y: 12, width: labelWidth, height: 24)
-        label.frame = CGRect(x: 11, y: 3, width: labelWidth - 22, height: 18)
-        icon.frame = CGRect(x: labelWidth + 10, y: 2, width: 44, height: 44)
+        let onLeft = iconSide == .left
+        // Keep the raised end of a long name within the fan's vertical clearance.
+        let usualRowWidth = FanMetrics.defaultWidth - FanMetrics.canvasGutter
+        let tilt = size.width > usualRowWidth ? asin(sin(angle) * usualRowWidth / size.width) : angle
+        frameRotation = (onLeft ? -tilt : tilt) * 180 / .pi
+        let anchor = convert(NSPoint(x: onLeft ? 0 : bounds.width, y: bounds.midY), to: superview)
+        setFrameOrigin(NSPoint(x: frame.origin.x + edge - anchor.x, y: frame.origin.y + center - anchor.y))
+        let labelFrame = CGRect(x: onLeft ? FanMetrics.fileIconAndGap : 0, y: bounds.midY - capsuleHeight / 2,
+                                width: labelWidth, height: capsuleHeight)
+        if capsule.frame != labelFrame {
+            capsule.frame = labelFrame
+            // Draw the angled edge inside the taller row, clear of the glass's clipping boundary.
+            let rect = convertToLayer(labelFrame)
+            let radius = min(12, rect.height / 2)
+            (layer as? CAShapeLayer)?.path = CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil)
+        }
+        label.frame = CGRect(x: FanMetrics.textInset, y: 3, width: labelWidth - 2 * FanMetrics.textInset, height: textHeight)
+        icon.frame = CGRect(x: onLeft ? 0 : labelWidth + 10, y: bounds.midY - 22, width: 44, height: 44)
+    }
+
+    func updateHighlight(_ highlighted: Bool, selected: Bool) {
         if self.highlighted != (highlighted || selected) {
             self.highlighted = highlighted || selected
             updateColors()
         }
-        accessibility.setAccessibilitySelected(selected)
+        if accessibility.isAccessibilitySelected() != selected { accessibility.setAccessibilitySelected(selected) }
     }
 
     var visualFrame: NSRect { convert(bounds, to: superview) }
 
     func contains(pointInCanvas point: CGPoint) -> Bool {
         let local = convert(point, from: superview)
-        return capsule.frame.contains(local) || icon.frame.contains(local)
+        return capsule.frame.union(icon.frame).contains(local)
     }
 }

@@ -12,7 +12,8 @@ let package = Package(
             dependencies: ["DownloadScrollerCore"],
             exclude: ["Resources"]
         ),
-        .testTarget(name: "DownloadScrollerCoreTests", dependencies: ["DownloadScrollerCore"])
+        .testTarget(name: "DownloadScrollerCoreTests", dependencies: ["DownloadScrollerCore"]),
+        .testTarget(name: "DownloadScrollerTests", dependencies: ["DownloadScroller"])
     ],
     swiftLanguageModes: [.v5]
 )

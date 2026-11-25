@@ -11,6 +11,6 @@ swiftc -swift-version 5 -parse-as-library -enable-testing -emit-library -emit-mo
 swiftc -swift-version 5 -parse-as-library -D STANDALONE_CHECKS \
   -I "$CHECK_DIR" -L "$CHECK_DIR" -lDownloadScrollerCore \
   -Xlinker -rpath -Xlinker "$CHECK_DIR" \
-  scripts/CLTTestSupport.swift Tests/DownloadScrollerCoreTests/FileLibraryTests.swift \
+  scripts/CLTTestSupport.swift Tests/DownloadScrollerCoreTests/*.swift \
   -o "$CHECK_DIR/CoreChecks"
 "$CHECK_DIR/CoreChecks"

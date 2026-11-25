@@ -14,6 +14,8 @@ struct ShelfView: View {
             HStack {
                 Text("DownloadScroller").font(.headline)
                 Spacer()
+                Button { model.onShowDockSettings?() } label: { Image(systemName: "gearshape") }
+                    .buttonStyle(.borderless).accessibilityLabel("Dock & Launchers")
                 Button { model.onDismiss?() } label: { Image(systemName: "xmark") }
                     .buttonStyle(.borderless).accessibilityLabel("Close window")
             }.padding(26)
@@ -45,6 +47,6 @@ struct ShelfView: View {
         }
         .foregroundStyle(.primary)
         .background(NativeMaterial(material: .windowBackground, radius: 24))
-        .onExitCommand { model.onDismiss?() }
+        .onExitCommand { model.handleEscape() }
     }
 }

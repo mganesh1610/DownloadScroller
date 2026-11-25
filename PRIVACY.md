@@ -1,20 +1,22 @@
 # DownloadScroller privacy policy
 
-Effective date: November 15, 2026
+Effective November 20, 2026
 
 DownloadScroller works locally on your Mac. The app does not collect or transmit personal data, filenames, file contents, usage analytics, crash reports, or device identifiers to its developer. It includes no advertising, tracking, third-party analytics, or network client/server entitlements.
 
 ## Folder access
 
-You choose a folder using the standard macOS folder picker. DownloadScroller uses read-only access to list that folder's immediate visible items, show names and metadata, generate thumbnails, show the newest completed file as the running Dock icon, and provide previews. It does not modify or delete your selected files.
+You choose a folder using the standard macOS folder picker. DownloadScroller remembers read-only access for listing files, reading metadata, generating thumbnails and showing previews. When you first copy into a fan, a separate picker asks you to allow copies into that folder. A writable security-scoped bookmark for that fan stays in the app's local preferences. Copying creates a new item in the receiving folder or the folder row you choose. Existing items keep their contents.
 
-The app stores a security-scoped bookmark in its local preferences so it can reopen the selected folder after relaunch. The sort preference is also stored locally. Use **Folder menu → Disconnect folder** to remove the stored bookmark. The sample-files feature creates sample documents in the app's temporary directory. It does not use your Downloads folder.
+Each enabled launcher watches its chosen folder while the app is running. The launcher file's custom icon contains a preview of the newest completed file and the app badge. That preview can travel with the launcher if you copy or share it. The launcher’s folder permission stays in the app’s local storage.
+
+The app stores the browsing bookmark and sort preference locally. Use **Folder menu → Disconnect folder** in the main fan to remove its saved browsing and copy permissions. The sample-files feature creates sample documents in the app's temporary directory.
 
 ## macOS services and other apps
 
 Thumbnails and previews use Apple's Quick Look services. Opening a file or revealing it in Finder asks macOS to hand that file to the appropriate application. Those applications and any cloud storage provider you use have their own privacy practices. DownloadScroller does not send your files to its developer.
 
-While the fan is open, a mouse-click event monitor lets it close when you interact with another app or a system menu. These events are not recorded or transmitted. The app does not monitor global keystrokes.
+While the fan is open, a mouse-click event monitor lets it close when you interact with another app or a system menu. DownloadScroller keeps the last position used for its own Dock icon on each display in local preferences so keyboard reopening can use the same position. It keeps no click history and does not monitor global keystrokes.
 
 ## Support
 

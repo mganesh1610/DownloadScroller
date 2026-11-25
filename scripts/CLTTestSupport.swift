@@ -1,8 +1,11 @@
-// Runs the same core test methods on Macs with Command Line Tools but no XCTest.
+// Shared assertions for core and app-state checks with Command Line Tools but no XCTest.
 // Full Xcode/CI uses XCTest; this small adapter deliberately fails the process on failure.
 import Foundation
 
 class XCTestCase {}
+func XCTFail(_ message: String, file: StaticString = #file, line: UInt = #line) {
+    preconditionFailure(message, file: file, line: line)
+}
 func XCTAssertEqual<T: Equatable>(_ lhs: T, _ rhs: T, file: StaticString = #file, line: UInt = #line) {
     precondition(lhs == rhs, "Expected \(lhs) to equal \(rhs)", file: file, line: line)
 }
@@ -15,6 +18,7 @@ func XCTAssertThrowsError<T>(_ expression: @autoclosure () throws -> T, file: St
     preconditionFailure("Expected an error", file: file, line: line)
 }
 
+#if !APP_CHECKS
 @main
 enum CLTTestRunner {
     static func main() throws {
@@ -29,6 +33,23 @@ enum CLTTestRunner {
         tests.testFilteredFanKeepsRecentResultAtBottom()
         tests.testWheelMotionIsContinuousAndIndependentOfRefreshRate()
         tests.testWheelReversalAndBoundsDoNotLeaveQueuedDrift()
-        print("PASS: 10 core scenarios (file queries, scan, bottom-first fan order, Dock file selection, wheel motion and bounds)")
+        let launchers = LauncherStoreTests()
+        try launchers.testCreateReloadAndCopyResolveToTheSamePrivateProfile()
+        try launchers.testDuplicatesHaveIndependentFoldersAndEnabledStates()
+        try launchers.testNameCollisionsNeverOverwriteExistingLaunchers()
+        try launchers.testArtworkOnlyTargetsTheMatchingManagedDocument()
+        try launchers.testNamesCannotEscapeTheManagedFolderOrExceedFilenameLimit()
+        try launchers.testMalformedUnknownAndFutureDocumentsAreRejected()
+        try launchers.testWrongExtensionDirectoriesAndSymlinksAreRejected()
+        try launchers.testCorruptRegistryIsReportedAndNeverReplaced()
+        try launchers.testEmptyBookmarksAreRejectedWithoutChangingProfiles()
+        try launchers.testDocumentWriteFailurePreservesExistingRegistry()
+        try launchers.testRegistryWriteFailureRollsBackOnlyTheNewDocument()
+        let copy = FanFileCopyTests()
+        try copy.testCopiesBothDirectionsToRootAndFolderWithoutOverwriting()
+        try copy.testFolderTreesCanBeCopiedButNotIntoThemselvesOrOutsideViaASymlink()
+        try copy.testConcurrentCopiesWithTheSameNamePreserveEveryPayload()
+        print("PASS: 24 core scenarios (file library, fan motion, launchers and file copies)")
     }
 }
+#endif

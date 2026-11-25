@@ -13,5 +13,24 @@
     <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
     <key>NSHighResolutionCapable</key><true/>
     <key>NSPrincipalClass</key><string>NSApplication</string>
+    <key>DownloadScrollerLauncherExtension</key><string>downloadscroller</string>
+    <key>CFBundleDocumentTypes</key>
+    <array><dict>
+        <key>CFBundleTypeName</key><string>DownloadScroller Launcher</string>
+        <key>CFBundleTypeRole</key><string>Viewer</string>
+        <key>CFBundleTypeIconFile</key><string>AppIcon</string>
+        <key>LSHandlerRank</key><string>Owner</string>
+        <key>LSItemContentTypes</key><array><string>io.github.mganesh1610.DownloadScroller.launcher</string></array>
+    </dict></array>
+    <key>UTExportedTypeDeclarations</key>
+    <array><dict>
+        <key>UTTypeIdentifier</key><string>io.github.mganesh1610.DownloadScroller.launcher</string>
+        <key>UTTypeDescription</key><string>DownloadScroller Launcher</string>
+        <key>UTTypeConformsTo</key><array><string>public.data</string><string>public.content</string></array>
+        <key>UTTypeIconFile</key><string>AppIcon</string>
+        <key>UTTypeTagSpecification</key><dict>
+            <key>public.filename-extension</key><array><string>downloadscroller</string></array>
+        </dict>
+    </dict></array>
     <key>NSHumanReadableCopyright</key><string>Copyright © 2026 Ganesh. MIT License.</string>
 </dict></plist>

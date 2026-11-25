@@ -12,58 +12,64 @@ final class LibraryModel: ObservableObject {
     @Published private(set) var loading = false
     @Published private(set) var isSample = false
     @Published var errorMessage: String?
+    @Published var dropHint: String?
+    @Published var availableForFanDrop = false
+    @Published var copyNotice: String?
+    let copyPermission: FanCopyPermission
     @Published var search = "" { didSet { updateQuery() } }
+    @Published var isSearchPresented = false
     @Published var filter: FileKind? { didSet { updateQuery() } }
     @Published var selectedID: String?
     @Published var searchFocusRequest = 0
     @Published var selectionScrollRequest = 0
     @Published var fanOpenRequest = 0
-    @Published var pinned = false
+    @Published var pinned: Bool {
+        didSet { defaults.set(pinned, forKey: pinKey) }
+    }
+    @Published var fanIconSide = FanIconSide.right
+    @Published var filenameWrapWidth: CGFloat?
+    let launcherID: UUID?
+    private let defaults: UserDefaults
+    private let pinKey: String
+    private let sortKey: String
+    var isDraggingFile = false
     @Published var sort: FileSort {
         didSet {
-            UserDefaults.standard.set(sort.rawValue, forKey: "fanSortFromDock")
+            defaults.set(sort.rawValue, forKey: sortKey)
             updateQuery()
         }
     }
 
     var onPreview: (([URL], Int) -> Void)?
     var onDismiss: (() -> Void)?
-    private let watcher = FolderWatcher()
-    private var scopedFolder: URL?
-    private var scanTask: Task<Void, Never>?
-    private var scanWorker: Task<[FileEntry], Error>?
-    private var generation = 0
+    var onShowDockSettings: (() -> Void)?
+    var onSetLauncherFolder: ((LauncherFolder) throws -> Void)?
+    private var contents: FolderContents?
+    private var subscriptions = Set<AnyCancellable>()
     private var switchingFolder = false
     private let bookmarkKey = "selectedFolderBookmark"
 
-    init() {
-        let defaults = UserDefaults.standard
-        // The former top-down preference belongs to the old layout. Start the
-        // Dock-oriented fan with recent files at its base, then remember choices.
-        sort = FileSort(rawValue: defaults.string(forKey: "fanSortFromDock") ?? "") ?? .newest
+    init(launcherID: UUID? = nil, defaults: UserDefaults = .standard) {
+        self.launcherID = launcherID
+        self.defaults = defaults
+        copyPermission = FanCopyPermission(launcherID: launcherID, defaults: defaults)
+        pinKey = "keepFanOpen." + (launcherID?.uuidString ?? "main")
+        sortKey = launcherID.map { "fanSortFromDock." + $0.uuidString } ?? "fanSortFromDock"
+        let saved = defaults.string(forKey: sortKey) ?? defaults.string(forKey: "fanSortFromDock")
+        sort = FileSort(rawValue: saved ?? "") ?? .newest
+        pinned = defaults.bool(forKey: pinKey)
     }
 
     var selectedEntry: FileEntry? { visibleEntries.first { $0.id == selectedID } }
+    var folderAccess: FolderAccess? { contents?.access }
     var folderName: String { folder?.lastPathComponent ?? "Downloads, unfolded." }
 
     func restore() {
-        guard let data = UserDefaults.standard.data(forKey: bookmarkKey) else { return }
+        guard let data = defaults.data(forKey: bookmarkKey) else { return }
         do {
-            var stale = false
-            let url = try URL(resolvingBookmarkData: data, options: [.withSecurityScope, .withoutUI],
-                              relativeTo: nil, bookmarkDataIsStale: &stale)
-            guard url.startAccessingSecurityScopedResource() else {
-                errorMessage = "Folder access expired. Choose your folder again to reconnect."
-                return
-            }
-            if stale {
-                do { try saveBookmark(url) }
-                catch {
-                    url.stopAccessingSecurityScopedResource()
-                    throw error
-                }
-            }
-            switchFolder(to: url, scoped: true, sample: false)
+            let resolved = try FolderBookmark.resolve(data)
+            if resolved.bookmark != data { defaults.set(resolved.bookmark, forKey: bookmarkKey) }
+            display(FolderContents(access: resolved.access))
         } catch {
             errorMessage = "Your saved folder could not be opened. Choose it again to reconnect."
         }
@@ -71,8 +77,8 @@ final class LibraryModel: ObservableObject {
 
     func chooseFolder() {
         let panel = NSOpenPanel()
-        panel.title = "Choose a folder for DownloadScroller"
-        panel.message = "Choose Downloads or another folder. DownloadScroller only needs permission to read it."
+        panel.title = launcherID == nil ? "Choose a folder for DownloadScroller" : "Choose a folder for this launcher"
+        panel.message = "Choose a folder to browse. The first incoming copy asks for permission to write here."
         panel.prompt = "Choose folder"
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
@@ -87,80 +93,61 @@ final class LibraryModel: ObservableObject {
     }
 
     private func acceptFolder(_ url: URL) {
-        let scoped = url.startAccessingSecurityScopedResource()
+        let access = FolderAccess(url: url, scoped: url.startAccessingSecurityScopedResource())
         do {
-            try saveBookmark(url)
-            switchFolder(to: url, scoped: scoped, sample: false)
+            try withExtendedLifetime(access) {
+                let bookmark = try FolderBookmark.create(for: url)
+                if launcherID != nil {
+                    guard let onSetLauncherFolder else { throw LauncherError.missingProfile }
+                    try onSetLauncherFolder(bookmark)
+                } else {
+                    defaults.set(bookmark.bookmark, forKey: bookmarkKey)
+                    display(FolderContents(access: access))
+                }
+            }
         } catch {
-            if scoped { url.stopAccessingSecurityScopedResource() }
             errorMessage = "Couldn't save access to this folder: \(error.localizedDescription)"
         }
     }
 
-    private func saveBookmark(_ url: URL) throws {
-        let data = try url.bookmarkData(options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess],
-                                        includingResourceValuesForKeys: nil, relativeTo: nil)
-        UserDefaults.standard.set(data, forKey: bookmarkKey)
-    }
-
-    private func switchFolder(to url: URL, scoped: Bool, sample: Bool) {
-        generation += 1
-        scanTask?.cancel()
-        scanWorker?.cancel()
-        watcher.stop()
-        let previousScope = scopedFolder
-        let previousWorker = scanWorker
-        // Finish any in-flight read before releasing its security scope.
-        Task {
-            _ = await previousWorker?.result
-            previousScope?.stopAccessingSecurityScopedResource()
+    func display(_ source: FolderContents?) {
+        guard contents !== source else { return }
+        if let old = contents?.access.url, source?.access.url.standardizedFileURL != old.standardizedFileURL {
+            copyPermission.forget()
         }
-        scopedFolder = scoped ? url : nil
-        folder = url
-        isSample = sample
+        dropHint = nil
+        copyNotice = nil
+        subscriptions.removeAll()
+        contents = source
+        folder = source?.access.url
+        isSample = source?.isSample ?? false
         switchingFolder = true
         search = ""
+        isSearchPresented = false
         filter = nil
         entries = []
         visibleEntries = []
         selectedID = nil
         switchingFolder = false
         errorMessage = nil
-        watcher.start(url) { [weak self] in self?.refresh() }
-        refresh()
+        loading = false
+        guard let source else { return }
+        source.$loading.sink { [weak self] in self?.loading = $0 }.store(in: &subscriptions)
+        source.$listing.compactMap { $0 }.sink { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .success(let files):
+                entries = files
+                errorMessage = nil
+            case .failure:
+                entries = []
+                errorMessage = "This folder is unavailable. Reconnect it or choose another folder."
+            }
+            updateQuery()
+        }.store(in: &subscriptions)
     }
 
-    func refresh() {
-        guard let folder else { return }
-        generation += 1
-        let currentGeneration = generation
-        scanTask?.cancel()
-        scanWorker?.cancel()
-        loading = true
-        let worker = Task.detached(priority: .userInitiated) { try FolderScanner.scan(folder) }
-        scanWorker = worker
-        scanTask = Task { [weak self] in
-            do {
-                let files = try await worker.value
-                guard let self, !Task.isCancelled, currentGeneration == self.generation else { return }
-                // Give the built-in sample files meaningful ages, independent of
-                // when macOS added the generated fixtures to their temporary folder.
-                self.entries = self.isSample ? files.map {
-                    FileEntry(url: $0.url, name: $0.name, kind: $0.kind, size: $0.size,
-                              addedAt: $0.modifiedAt, modifiedAt: $0.modifiedAt)
-                } : files
-                self.errorMessage = nil
-                self.updateQuery()
-                self.loading = false
-            } catch {
-                guard let self, !Task.isCancelled, currentGeneration == self.generation else { return }
-                self.loading = false
-                self.entries = []
-                self.updateQuery()
-                self.errorMessage = "This folder is unavailable. Reconnect it or choose another folder."
-            }
-        }
-    }
+    func refresh() { contents?.refresh() }
 
     private func updateQuery() {
         guard !switchingFolder else { return }
@@ -171,6 +158,14 @@ final class LibraryModel: ObservableObject {
     func prepareToShow() {
         selectedID = visibleEntries.last?.id
         fanOpenRequest += 1
+    }
+
+    /// Keyboard events and SwiftUI exit commands must follow the same order.
+    func handleEscape() {
+        guard !isDraggingFile else { return }
+        if !search.isEmpty { search = "" }
+        else if isSearchPresented { isSearchPresented = false }
+        else { onDismiss?() }
     }
 
     func moveSelection(_ delta: Int) {
@@ -207,37 +202,19 @@ final class LibraryModel: ObservableObject {
     }
 
     func useSamples() {
-        do { switchFolder(to: try SampleLibrary.create(), scoped: false, sample: true) }
+        do { display(FolderContents(access: FolderAccess(url: try SampleLibrary.create(), scoped: false), isSample: true)) }
         catch { errorMessage = "Couldn't create sample files: \(error.localizedDescription)" }
     }
 
     func disconnect() {
-        generation += 1
-        scanTask?.cancel()
-        scanWorker?.cancel()
-        watcher.stop()
-        let previousScope = scopedFolder
-        let previousWorker = scanWorker
-        Task {
-            _ = await previousWorker?.result
-            previousScope?.stopAccessingSecurityScopedResource()
-        }
-        scopedFolder = nil
-        UserDefaults.standard.removeObject(forKey: bookmarkKey)
-        folder = nil
-        isSample = false
-        loading = false
-        entries = []
-        search = ""
-        filter = nil
-        selectedID = nil
-        errorMessage = nil
+        guard launcherID == nil else { return }
+        defaults.removeObject(forKey: bookmarkKey)
+        copyPermission.forget()
+        display(nil)
     }
 
     func shutdown() {
-        scanTask?.cancel()
-        scanWorker?.cancel()
-        watcher.stop()
-        // Process exit releases the remaining scope after background reads stop.
+        subscriptions.removeAll()
+        contents = nil
     }
 }

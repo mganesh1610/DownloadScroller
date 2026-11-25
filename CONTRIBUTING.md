@@ -3,8 +3,8 @@
 DownloadScroller is an early native macOS utility. Bug reports, accessibility feedback, and focused pull requests are welcome.
 
 1. Open an issue describing the behavior and macOS version. Use generated sample files when reporting file-access problems.
-2. Keep changes focused and use public Apple APIs. Preserve App Sandbox and read-only folder access.
-3. Run `swift test` with full Xcode, or `bash scripts/test-core.sh` with Command Line Tools. Build the app with `bash scripts/build-app.sh`.
+2. Keep changes focused and use public Apple APIs. Preserve App Sandbox, read-only browsing bookmarks and the explicit per-fan permission for incoming copies.
+3. Run `swift test` with full Xcode, or `bash scripts/test-app.sh` with Command Line Tools (includes the core checks). Build the app with `bash scripts/build-app.sh`.
 4. For UI changes, test with a long folder, a long filename, an empty folder, keyboard navigation, and Reduce Motion.
 5. If you add source files, regenerate the native project with `python3 scripts/generate-xcode-project.py`.
 

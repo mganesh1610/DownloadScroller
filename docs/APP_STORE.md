@@ -5,7 +5,7 @@ DownloadScroller 0.1.0 is an early preview. The source and native project are pr
 ## What is already included
 
 - Native macOS Xcode application target, shared scheme, and universal architecture configuration.
-- App Sandbox with user-selected **read-only** access and app-scoped bookmarks.
+- App Sandbox with user-selected read/write access and app-scoped bookmarks. Browsing uses read-only bookmarks. Each fan requests separate permission when it first receives a copy.
 - Public AppKit, SwiftUI, Foundation, Quick Look, and Uniform Type Identifiers APIs.
 - Original app logo at all required traditional macOS icon sizes, also used as the recent-file Dock badge.
 - System appearance and accessibility-aware filename capsules and controls, with native Liquid Glass on macOS 26 or later when built with Xcode 26 or later, and native material fallback on older supported systems.
@@ -59,7 +59,7 @@ Choose your Downloads folder or another folder you use often. Recent files appea
 
 New files appear as the folder changes, and the running Dock icon shows the newest completed file with the app's logo badge. Native macOS materials and controls follow your system's appearance and accessibility preferences. Your selected folder is remembered between launches. Keyboard navigation, search shortcuts, and a pin option help you keep things close at hand.
 
-DownloadScroller works locally, with read-only folder access. No account, advertising, or analytics. Its source code is available under the MIT license.
+DownloadScroller works locally. Open two fans to copy a file between folders or into a visible subfolder. You choose which folders can receive copies. No account, advertising, or analytics. Its source code is available under the MIT license.
 
 DownloadScroller is a standalone utility that opens from its own app icon. It does not change Apple's built-in Downloads stack.
 
@@ -67,11 +67,13 @@ DownloadScroller is a standalone utility that opens from its own app icon. It do
 
 ## Review notes
 
-On launch, select **Choose Downloads folder** and grant read-only access to Downloads or a test folder through the standard macOS picker. No login is needed. Alternatively, select **Take a look with sample files** to browse 240 generated files in the app's temporary directory.
+Open **Dock & Launchers… → Privacy Policy** to read the policy in your default browser. The settings window is available from the welcome screen and in menu-bar-only mode.
+
+On launch, select **Choose Downloads folder** and choose Downloads or a test folder for browsing. No login is needed. Alternatively, select **Take a look with sample files** to browse 240 generated files in the app's temporary directory.
 
 Scroll up from the newest file at the bottom to reach older files. Use the magnifying glass or Command-F to search. The folder menu at the bottom of the fan offers sorting, filters, and pinning. There is one fan layout. Click a file to open it. Use arrow keys and Space (or Command-Y) for Quick Look, or right-click a file for actions. Use the app's menu bar item or click its Dock icon to reopen the fan. The fan closes when clicking outside or opening a system menu; **Keep window open** preserves it. Outside-click detection uses a public, mouse-only event monitor while the fan is open, with no Accessibility permission request. Command-Q quits the app. **Folder menu → Disconnect folder** removes saved folder access.
 
-This app provides its own window using public APIs. It does not modify the system Dock or the built-in Downloads stack. The bookmark entitlement persists the folder the user chose; read-only access supports enumeration, metadata, thumbnails, and previews.
+Create a launcher for a second test folder in **Dock & Launchers…**. Open both fans and drag a file onto the second fan's folder name or onto a folder row. On the first copy, select the receiving fan's folder and click **Allow copies**. The app remembers the grant with an app-scoped bookmark. Each fan uses public window APIs and can be closed independently by clicking its own Dock icon again.
 
 ## Privacy questionnaire preparation
 

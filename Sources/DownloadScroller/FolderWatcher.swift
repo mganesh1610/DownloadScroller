@@ -4,6 +4,7 @@ import Foundation
 final class FolderWatcher {
     private var source: DispatchSourceFileSystemObject?
     private var pending: DispatchWorkItem?
+    var isWatching: Bool { source != nil }
 
     func start(_ url: URL, onChange: @escaping () -> Void) {
         stop()
